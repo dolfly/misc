@@ -20,5 +20,7 @@ int ring_buf_content(struct ring_buf_t *r);
 void ring_buf_get(char *dst, int len, struct ring_buf_t *r);
 void ring_buf_put(char *ptr, int len, struct ring_buf_t *r);
 
-#endif
+int ring_buf_process(int (*process)(char *buf, int size, void *arg),
+		     void *arg, int max, struct ring_buf_t *r);
 
+#endif

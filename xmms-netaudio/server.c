@@ -16,8 +16,13 @@
 #include "net.h"
 #include "meta.h"
 #include "ring_buf.h"
+#include "event.h"
 
 extern int errno;
+
+int dspfd;
+
+struct event_queue eq;
 
 static const int rbsize = 524288;
 
@@ -69,6 +74,25 @@ static int init_dsp(int fd, struct na_meta *meta) {
   return 1;
 }
 
+static void close_dsp(void) {
+  while (close(dspfd)) {
+    perror("xmms-netaudio: not able to close dsp");
+    sleep(1);
+  }
+  dspfd = -1;
+}
+
+static void open_dsp(void *meta) {
+  dspfd = open("/dev/dsp", O_WRONLY);
+  if (dspfd < 0) {
+    perror("xmms-netaudio: can not open audio device");
+    return;
+  }
+  if (!init_dsp(dspfd, meta)) {
+    close_dsp();
+  }
+}
+
 static int stream_input(struct stream *s) {
   int ret;
   int meta_len = (int) sizeof(struct na_meta);
@@ -87,6 +111,10 @@ static int stream_input(struct stream *s) {
     } else {
       s->meta_size += ret;
     }
+    if (s->meta_size == meta_len) {
+      event_append(&eq, open_dsp, s);
+    }
+
   } else {
     ret = read(s->fd, buf, sizeof(buf));
     fprintf(stderr, "stream_input: ret = %d\n", ret);
@@ -94,9 +122,32 @@ static int stream_input(struct stream *s) {
   return 1;
 }
 
-static int dsp_output(int fd) {
-  fd = fd;
-  return 0;
+static int dsp_write(char *buf, int size, void *arg) {
+  int fd = (int) arg;
+  int ret;
+  ret = write(fd, buf, size);
+  if (ret < 0) {
+    if (errno != EINTR) {
+      perror("dsp_write");
+    }
+    return 0;
+  } else if (ret == 0) {
+    fprintf(stderr, "xmms-netaudio: interesting: dsp_write returned zero\n");
+    return 0;
+  }
+  return ret;
+}
+
+static int dsp_output(int fd, struct stream *s) {
+  int ret;
+  int content;
+  content = ring_buf_content(&s->rb);
+  if (content > 0) {
+    /* process at most 4096 bytes from ring buffer with dsp_write() */
+    ret = ring_buf_process(dsp_write, (void *) fd, 4096, &s->rb);
+    fprintf(stderr, "dsp_output %d\n", ret);
+  }
+  return 1;
 }
 
 int main(int argc, char **argv) {
@@ -106,7 +157,6 @@ int main(int argc, char **argv) {
   int is_connected;
   int nfds;
   int ret;
-  int dspfd;
 
   if (argc < 3) {
     fprintf(stderr, "xmms-netaudio: not enough parameters. give a port to listen.\n");
@@ -142,6 +192,11 @@ int main(int argc, char **argv) {
     exit(-1);
   }
 
+  if (!event_init(&eq, 64)) {
+    fprintf(stderr, "xmms-netaudio: event queue init failed\n");
+    exit(-1);
+  }
+
   pfd[0].fd = net_listen(0, port, "tcp");
   pfd[0].events = POLLIN;
 
@@ -150,7 +205,7 @@ int main(int argc, char **argv) {
   in_stream.meta_size = 0;
   dspfd = -1;
 
-  while(1) {
+  while (1) {
     nfds = 1;
     if (in_stream.fd >= 0) {
       pfd[nfds].fd = in_stream.fd;
@@ -158,10 +213,11 @@ int main(int argc, char **argv) {
       nfds++;
     }
     if (dspfd >= 0) {
-      /* this should be put on pfd only if there's data to write */
-      pfd[nfds].fd = dspfd;
-      pfd[nfds].events = POLLOUT;
-      nfds++;
+      if (ring_buf_content(&in_stream.rb) > 0) {
+	pfd[nfds].fd = dspfd;
+	pfd[nfds].events = POLLOUT;
+	nfds++;
+      }
     }
 
     ret = poll(pfd, nfds, -1);
@@ -187,8 +243,7 @@ int main(int argc, char **argv) {
       if (pfd[i].fd == in_stream.fd) {
 	(void) stream_input(&in_stream);
       } else if (pfd[i].fd == dspfd) {
-	/* test here if there's something to write */
-	(void) dsp_output(dspfd);
+	(void) dsp_output(dspfd, &in_stream);
       }
     }
   }

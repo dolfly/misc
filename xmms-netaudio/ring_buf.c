@@ -29,7 +29,8 @@ SOFTWARE.
    ring_buffer_destroy(). However, if the 'buf' was given by the user for the
    init, then ring_buffer_destroy() will not free() it.
 */
-int ring_buf_init(struct ring_buf_t *r, void *buf, int size) {
+int ring_buf_init(struct ring_buf_t *r, void *buf, int size)
+{
   if (!r) {
     fprintf(stderr, "ring_buf_init: null pointer\n");
     return 0;
@@ -59,7 +60,8 @@ int ring_buf_init(struct ring_buf_t *r, void *buf, int size) {
   return 1;
 }
 
-void ring_buf_destroy(struct ring_buf_t *r) {
+void ring_buf_destroy(struct ring_buf_t *r)
+{
   if (!r) {
     fprintf(stderr, "ring_buf_destroy: tried to free null pointer\n");
     return;
@@ -74,7 +76,8 @@ void ring_buf_destroy(struct ring_buf_t *r) {
   r->buf = 0;
 }
 
-void ring_buf_reset(struct ring_buf_t *r) {
+void ring_buf_reset(struct ring_buf_t *r)
+{
   if (!r) {
     fprintf(stderr, "ring_buf_reset: null pointer\n");
     return;
@@ -86,7 +89,8 @@ void ring_buf_reset(struct ring_buf_t *r) {
 /* - x ------------ (x is i and o) */
 /* --- o SSS i ---- */
 /* SSS i --- o SSSS */
-int ring_buf_free(struct ring_buf_t *r) {
+int ring_buf_free(struct ring_buf_t *r)
+{
   int i, o, ret;
   if (!r) {
     fprintf(stderr, "ring_buf_free: null pointer\n");
@@ -99,7 +103,8 @@ int ring_buf_free(struct ring_buf_t *r) {
   return ret;
 }
 
-int ring_buf_content(struct ring_buf_t *r) {
+int ring_buf_content(struct ring_buf_t *r)
+{
   int i, o;
   if (!r) {
     fprintf(stderr, "ring_buf_content: null pointer\n");
@@ -110,7 +115,8 @@ int ring_buf_content(struct ring_buf_t *r) {
   return (i >= o) ? (i - o) : (i + r->size - o);
 }
 
-void ring_buf_put(char *ptr, int len, struct ring_buf_t *r) {
+void ring_buf_put(char *ptr, int len, struct ring_buf_t *r)
+{
   int i;
   if (!r) {
     fprintf(stderr, "ring_buf_put: null pointer\n");
@@ -136,7 +142,8 @@ void ring_buf_put(char *ptr, int len, struct ring_buf_t *r) {
   r->input_offs = i;
 }
 
-void ring_buf_get(char *dst, int len, struct ring_buf_t *r) {
+void ring_buf_get(char *dst, int len, struct ring_buf_t *r)
+{
   int o;
   if (!r) {
     fprintf(stderr, "ring_buf_get: null pointer\n");
@@ -161,4 +168,36 @@ void ring_buf_get(char *dst, int len, struct ring_buf_t *r) {
   }
   o = (o + len) % r->size;
   r->output_offs = o;
+}
+
+int ring_buf_process(int (*process)(char *buf, int size, void *arg),
+		     void *arg, int max, struct ring_buf_t *r)
+{
+  int o;
+  int len;
+  int content;
+  int processed;
+  if (!r) {
+    fprintf(stderr, "ring_buf_get: null pointer\n");
+    return 0;
+  }
+
+  content = ring_buf_content(r);
+  if (content == 0) {
+    return 0;
+  }
+  if (content > max) {
+    content = max;
+  }
+
+  o = r->output_offs;
+  if ((o + content) <= r->size) {
+    len = content;
+  } else {
+    len = r->size - o;
+  }
+  processed = process(&r->buf[o], len, arg);
+  o = (o + len) % processed;
+  r->output_offs = o;
+  return processed;
 }
