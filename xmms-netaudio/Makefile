@@ -2,7 +2,7 @@
 CC=gcc
 FLAGS=-W -Wall -O2 `glib-config --cflags` `xmms-config --cflags`
 LIBS=`xmms-config --libs`
-PLUGINDIR=/home/shd/Plugins/Output
+PLUGINDIR=/home/shd/.xmms/Plugins/Output
 OBJS=xmms-output.lo net.lo
 
 libxmms-netaudio.la:	$(OBJS)
@@ -13,6 +13,10 @@ xmms-output.lo:	xmms-output.c
 
 net.lo:	net.c net.h
 	libtool --mode=compile $(CC) $(FLAGS) -c net.c
+
+install:	libxmms-netaudio.la
+	mkdir -p $(PLUGINDIR) || true
+	install .libs/libxmms-netaudio.so $(PLUGINDIR)/
 
 clean:	
 	rm -f *.o *.lo *.la *.so
