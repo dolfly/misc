@@ -28,6 +28,7 @@ SOFTWARE.
 #include <sys/poll.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 
 #include <pthread.h>
 
@@ -224,6 +225,20 @@ static void *na_write_loop(void *arg) {
   return 0;
 }
 
+static int na_send_meta(AFormat fmt, int rate, int nch) {
+  struct meta {
+    uint32_t fmt;
+    uint32_t rate;
+    uint32_t nch;
+  };
+  struct meta m;
+  m.fmt = htonl(fmt);
+  m.rate = htonl(rate);
+  m.nch = htonl(nch);
+  return na_send(na_sockfd, (char *) &m, sizeof(m));
+}
+
+
 static int na_open_audio(AFormat fmt, int rate, int nch) {
   int ret, tries;
   if (!na_valid) {
@@ -242,6 +257,12 @@ static int na_open_audio(AFormat fmt, int rate, int nch) {
   }
   if (na_sockfd < 0) {
     fprintf(stderr, "xmms-netaudio: timeout: couldn't connect to remote server\n");
+    return 0;
+  }
+
+  if (!na_send_meta(fmt, rate, nch)) {
+    fprintf(stderr, "xmms-netaudio: couldn't send meta data to remote server\n");
+    na_close_socket(na_sockfd);
     return 0;
   }
 
@@ -286,6 +307,8 @@ static void na_close_audio(void) {
 }
 
 static void na_flush(int time) {
+  time = time;
+  /* what should we do here? */
 }
 
 static void na_pause(short paused) {
