@@ -57,10 +57,10 @@ static int na_rate;
 static int na_channels;
 static int na_cps;
 
-static const int na_queue_size = 524288;
 struct ring_buf_t rb;
 
 static void na_init(void) {
+  const int na_queue_size = 524288;
   na_valid = 0;
   if (!ring_buf_init(&rb, 0, na_queue_size)) {
     fprintf(stderr, "xmms-netaudio: na_init: no ring buffer\n");
@@ -112,6 +112,7 @@ static int na_send(int sockfd, void *ptr, int length) {
   while (written < length) {
 
     ret = poll(&pfd, 1, 1000);
+    fprintf(stderr, "poll ret = %d\n", ret);
     if (ret < 0) {
       if (errno != EINTR) {
 	perror("xmms-netaudio: poll returned error");
@@ -121,7 +122,8 @@ static int na_send(int sockfd, void *ptr, int length) {
       continue;
     }
 
-    ret = write(na_sockfd, &buf[written], length - written);
+    ret = write(sockfd, &buf[written], length - written);
+    fprintf(stderr, "send write = %d\n", ret);
     if (ret > 0) {
       written += ret;
 
@@ -224,6 +226,7 @@ static void na_write_audio(void *ptr, int length) {
     return;
   }
   ring_buf_put((char *) ptr, length, &rb);
+  fprintf(stderr, "%d\n", length);
 }
 
 static void na_close_audio(void) {
