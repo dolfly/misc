@@ -23,7 +23,9 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "\tcrypt-pass outputs the password hash for a given password. man 3 crypt\n\tfor more details.\n\n");
 		fprintf(stderr, "USAGE\n");
 		fprintf(stderr, "\t%s password [salt]\n\n", argv[0]);
-		fprintf(stderr, "\tpassword is at most 8 characters. salt is at most 2 characters, and\n\tit is optional\n");
+		fprintf(stderr, "\tpassword is at most 8 characters. salt is at most 2 characters, and\n\tit is optional.\n");
+		fprintf(stderr, "\tif password is - then the password is read from stdin,\n");
+		fprintf(stderr, "\tbut salt is _not_ given from the command line.\n");
 		return -1;
 	}
 
