@@ -2,7 +2,7 @@
    in public domain. You may do anything with the source code.
 
    history:
-   2005.01.13: version 1
+   2005.01.13: version 0.1
     - initial version
     - supports randomizing with -r or --randomize options
     - force use of /dev/urandom with -c or --check (will give error if
