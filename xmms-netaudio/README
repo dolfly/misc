@@ -2,7 +2,7 @@ xmms-netaudio (output) plugin
 -----------------------------
 
 Copyright 2003 Heikki Orsila <heikki.orsila@tut.fi>
-See LICENSE for licensing information.
+See LICENSE file for licensing information.
 
 xmms-netaudio (output) plugin is an audio target for xmms. It sends all
 audio data to a (remote) server for audio playback.
