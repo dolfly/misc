@@ -29,16 +29,22 @@ SOFTWARE.
 #include <errno.h>
 #include <sys/socket.h>
 
+#include <pthread.h>
+
 #include <glib.h>
 #include <gtk/gtk.h>
 
 #include <xmms/plugin.h>
+#include <xmms/util.h>
 
 #include "net.h"
 
 extern int errno;
 
 static int na_valid;
+static int na_playing;
+
+static pthread_t na_pth;
 
 static long long na_input_bytes, na_output_bytes;
 static int na_sockfd;
@@ -116,7 +122,6 @@ static void na_queue_get(char *dst, int len) {
 }
 
 static void na_init(void) {
-  fprintf(stderr, "na_init\n");
   na_queue = malloc(na_queue_size);
   if (!na_queue) {
     fprintf(stderr, "xmms-netaudio: na_init: malloc failed\n");
@@ -124,6 +129,7 @@ static void na_init(void) {
     return;
   }
   na_valid = 1;
+  na_playing = 0;
 }
 
 static int typesize(AFormat fmt) {
@@ -144,47 +150,24 @@ static int typesize(AFormat fmt) {
   return ret;
 }
 
-static int na_open_audio(AFormat fmt, int rate, int nch) {
-  int ret;
-  fprintf(stderr, "na_open_audio\n");
-  if (!na_valid) {
-    fprintf(stderr, "xmms-netaudio: init failed, but open was called\n");
-    return 0;
+static void na_close_socket(int fd) {
+  if (fd >= 0) {
+    shutdown(fd, SHUT_RDWR);
+    while (close(fd));
   }
-  na_sockfd = net_open("shd.ton.tut.fi", "5555", "tcp");
-  if (na_sockfd < 0) {
-    /* return 0; */
-  }
-  na_rate = rate;
-  na_channels = nch;
-  na_format = fmt;
-  ret = typesize(fmt);
-  na_cps = ret * rate * nch;
-
-  na_input_offs = na_output_offs = 0;
-  na_input_bytes = na_output_bytes = 0;
-  return 1;
 }
 
-static void na_write_audio(void *ptr, int length) {
-  na_input_bytes += length;
-  if (length <= 0) {
-    fprintf(stderr, "xmms-netaudio: na_write_audio: length <= 0\n");
-    return;
-  }
-  if (na_queue_free() < length) {
-    fprintf(stderr, "xmms-netaudio: na_write_audio: not enough space\n");
-    return;
-  }
-  na_queue_put((char *) ptr, length);
-  na_output_offs = na_input_offs;
-  na_output_bytes += length;
-}
 
-static void na_send(void *ptr, int length) {
+static int na_send(int sockfd, void *ptr, int length) {
   char *buf;
   int ret, written;
   struct pollfd pfd;
+
+  if (sockfd < 0)
+    return 0;
+
+  pfd.fd = sockfd;
+  pfd.events = POLLOUT;
 
   buf = (char *) ptr;
   written = 0;
@@ -202,26 +185,103 @@ static void na_send(void *ptr, int length) {
 
     ret = write(na_sockfd, &buf[written], length - written);
     if (ret > 0) {
-      na_output_bytes += ret;
+      written += ret;
 
     } else if (ret == 0) {
-      fprintf(stderr, "xmms-netaudio: na_write_audio: write returned 0\n");
+      fprintf(stderr, "xmms-netaudio: na_send: write returned 0\n");
       break;
 
     } else {
       if (errno != EINTR) {
-	perror("xmms-netaudio: na_write_audio");
-	break;
+	perror("xmms-netaudio: na_send");
+	return 0;
       }
     }
   }
+  return 1;
+}
+
+static void *na_write_loop(void *arg) {
+  const int s = 512;
+  char buf[s];
+  int ret;
+  arg = arg;
+  while (na_playing) {
+    ret = na_queue_content();
+    if (ret > s) {
+      na_queue_get(buf, s);
+      if (na_sockfd >= 0) {
+	if (!na_send(na_sockfd, buf, s)) {
+	  na_close_socket(na_sockfd);
+	  na_sockfd = -1;
+	}
+      }
+      na_output_bytes += s;
+    } else {
+      xmms_usleep(10000);
+    }
+  }
+  return 0;
+}
+
+static int na_open_audio(AFormat fmt, int rate, int nch) {
+  int ret, tries;
+  if (!na_valid) {
+    fprintf(stderr, "xmms-netaudio: init failed, but open was called\n");
+    return 0;
+  }
+
+  tries = 0;
+  na_sockfd = -1;
+  while (tries < 20) {
+    na_sockfd = net_open("shd.ton.tut.fi", "5555", "tcp");
+    if (na_sockfd >= 0)
+      break;
+    tries++;
+    xmms_usleep(500000);
+  }
+  if (na_sockfd < 0) {
+    fprintf(stderr, "xmms-netaudio: timeout: couldn't connect to remote server\n");
+    return 0;
+  }
+
+  na_rate = rate;
+  na_channels = nch;
+  na_format = fmt;
+  ret = typesize(fmt);
+  na_cps = ret * rate * nch;
+
+  na_input_offs = na_output_offs = 0;
+  na_input_bytes = na_output_bytes = 0;
+
+  na_playing = 1;
+
+  pthread_create(&na_pth, 0, na_write_loop, 0);
+
+  return 1;
+}
+
+static void na_write_audio(void *ptr, int length) {
+  na_input_bytes += length;
+  if (length <= 0) {
+    fprintf(stderr, "xmms-netaudio: na_write_audio: length <= 0\n");
+    return;
+  }
+  if (na_queue_free() < length) {
+    fprintf(stderr, "xmms-netaudio: na_write_audio: not enough space\n");
+    return;
+  }
+  na_queue_put((char *) ptr, length);
 }
 
 static void na_close_audio(void) {
-  if (na_sockfd >= 0) {
-    shutdown(na_sockfd, SHUT_RDWR);
-    while (close(na_sockfd));
+  na_playing = 0;
+
+  if (pthread_join(na_pth, 0)) {
+    fprintf(stderr, "xmms-netaudio na_close_audio: thread_join failed\n");
   }
+
+  na_close_socket(na_sockfd);
   na_sockfd = -1;
 }
 
