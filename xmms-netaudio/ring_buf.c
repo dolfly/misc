@@ -38,8 +38,10 @@ int ring_buf_init(struct ring_buf_t *r, void *buf, int size) {
     fprintf(stderr, "ring_buf_init: illegal size (0x%x)\n", size);
     return 0;
   }
-  r->size = size;
+
   memset(r, 0, sizeof(struct ring_buf_t));
+
+  r->size = size;
 
   if (buf) {
     /* user gave the buf. this will not be freed in ring_buf_destroy() */
@@ -90,7 +92,7 @@ int ring_buf_free(struct ring_buf_t *r) {
     fprintf(stderr, "ring_buf_free: null pointer\n");
     return 0;
   }
-  i= r->input_offs;
+  i = r->input_offs;
   o = r->output_offs;
   ret = (o > i) ? (o - i) : (o + r->size - i);
   ret--;

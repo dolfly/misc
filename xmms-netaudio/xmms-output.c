@@ -42,6 +42,8 @@ SOFTWARE.
 #include "meta.h"
 #include "ring_buf.h"
 
+#define SHDEBUG
+
 extern int errno;
 
 static int na_valid;
@@ -112,7 +114,6 @@ static int na_send(int sockfd, void *ptr, int length) {
   while (written < length) {
 
     ret = poll(&pfd, 1, 1000);
-    fprintf(stderr, "poll ret = %d\n", ret);
     if (ret < 0) {
       if (errno != EINTR) {
 	perror("xmms-netaudio: poll returned error");
@@ -123,7 +124,6 @@ static int na_send(int sockfd, void *ptr, int length) {
     }
 
     ret = write(sockfd, &buf[written], length - written);
-    fprintf(stderr, "send write = %d\n", ret);
     if (ret > 0) {
       written += ret;
 
@@ -226,7 +226,6 @@ static void na_write_audio(void *ptr, int length) {
     return;
   }
   ring_buf_put((char *) ptr, length, &rb);
-  fprintf(stderr, "%d\n", length);
 }
 
 static void na_close_audio(void) {
@@ -250,7 +249,8 @@ static void na_pause(short paused) {
 }
 
 static int na_buffer_free(void) {
-  return ring_buf_free(&rb);
+  int len = ring_buf_free(&rb);
+  return len;
 }
 
 static int na_buffer_playing(void) {
@@ -261,14 +261,12 @@ static int na_buffer_playing(void) {
 static int na_output_time(void) {
   if (na_cps == 0)
     return 0;
-  /* fprintf(stderr, "output: na_output_bytes = %lld na_cps = %d\n", na_output_bytes, na_cps); */
   return (int) (na_output_bytes * 1000 / na_cps);
 }
 
 static int na_written_time(void) {
   if (na_cps == 0)
     return 0;
-  /* fprintf(stderr, "written: na_input_bytes = %lld na_cps = %d\n", na_input_bytes, na_cps); */
   return (int) (na_input_bytes * 1000 / na_cps);
 }
 
