@@ -304,7 +304,6 @@ int main(int argc, char **argv) {
     }
 
     if (pfd[0].revents & POLLIN) {
-      fprintf(stderr, "xmms-netaudio: incoming connection\n");
       if (in_stream.valid && !in_stream.finished) {
 	ring_buf_reset(&in_stream.rb);
       }
@@ -314,7 +313,6 @@ int main(int argc, char **argv) {
 	perror("xmms-netaudio: accept error");
 	exit(-1);
       }
-      fprintf(stderr, "xmms-netaudio: incoming connection accepted\n");
       in_stream.valid = 1;
       in_stream.meta_size = 0;
       in_stream.bytes = 0;

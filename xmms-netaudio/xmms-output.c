@@ -61,6 +61,9 @@ static int na_cps;
 
 struct ring_buf_t rb;
 
+static int na_vol_left = 100;
+static int na_vol_right = 100;
+
 static void na_init(void) {
   const int na_queue_size = 524288;
   na_valid = 0;
@@ -174,6 +177,7 @@ static int na_send_meta(AFormat fmt, int rate, int nch) {
   default:
     fprintf(stderr, "xmms-netaudio: unknown format %d\n", fmt);
     f = NA_FMT_S16_LE;
+    return 0;
   }
   m.fmt = htonl(f);
   m.rate = htonl(rate);
@@ -249,8 +253,8 @@ static void na_close_audio(void) {
 }
 
 static void na_flush(int time) {
-  time = time;
-  /* what should we do here? */
+  /* for seeking */
+  na_output_bytes = na_cps * (time / 1000);
 }
 
 static void na_pause(short paused) {
@@ -279,6 +283,18 @@ static int na_written_time(void) {
   return (int) (na_input_bytes * 1000 / na_cps);
 }
 
+static void na_get_volume(int *l, int *r) {
+  if (l)
+    *l = na_vol_left;
+  if (r)
+    *r = na_vol_right;
+}
+
+static void na_set_volume(int l, int r) {
+  na_vol_left = l;
+  na_vol_right = r;
+}
+
 static void na_configure(void) {
 }
 
@@ -289,8 +305,8 @@ static OutputPlugin op = {
   na_init, /* init */
   0, /* about */
   na_configure, /* configure */
-  0, /* get_volume */
-  0, /* set_volume */
+  na_get_volume, /* get_volume */
+  na_set_volume, /* set_volume */
   na_open_audio, /* open audio */
   na_write_audio, /* write audio */
   na_close_audio, /* close audio */
