@@ -39,6 +39,7 @@ SOFTWARE.
 #include <xmms/util.h>
 
 #include "net.h"
+#include "meta.h"
 
 extern int errno;
 
@@ -226,18 +227,12 @@ static void *na_write_loop(void *arg) {
 }
 
 static int na_send_meta(AFormat fmt, int rate, int nch) {
-  struct meta {
-    uint32_t fmt;
-    uint32_t rate;
-    uint32_t nch;
-  };
-  struct meta m;
+  struct na_meta m;
   m.fmt = htonl(fmt);
   m.rate = htonl(rate);
   m.nch = htonl(nch);
   return na_send(na_sockfd, (char *) &m, sizeof(m));
 }
-
 
 static int na_open_audio(AFormat fmt, int rate, int nch) {
   int ret, tries;

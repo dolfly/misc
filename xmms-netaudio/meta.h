@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 
 typedef enum {
-  FMT_U8, FMT_S8, FMT_U16_LE, FMT_U16_BE, FMT_U16_NE, FMT_S16_LE, FMT_S16_BE, FMT_S16_NE
+  NA_FMT_U8, NA_FMT_S8, NA_FMT_U16_LE, NA_FMT_U16_BE, NA_FMT_U16_NE, NA_FMT_S16_LE, NA_FMT_S16_BE, NA_FMT_S16_NE
 } na_format_t;
 
 struct na_meta {
