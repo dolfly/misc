@@ -50,20 +50,36 @@ static int na_cps;
 
 static const int na_queue_size = 524288;
 static char *na_queue;
+static int na_input_offs; /* position where to put stuff */
+static int na_output_offs; /* position from where to get stuff */
 
-static int na_input_offs;
-static int na_output_offs;
-
+/* - x ------------ (x is i and o) */
+/* --- o SSS i ---- */
+/* SSS i --- o SSSS */
 static int na_queue_free(void) {
   int i = na_input_offs, o = na_output_offs;
-  return (o >= i) ? (o - i) : (o + na_queue_size - i - 1);
+  int ret = (o > i) ? (o - i) : (o + na_queue_size - i);
+  ret--;
+  return ret;
 }
+
+static int na_queue_content(void) {
+  int i = na_input_offs, o = na_output_offs;
+  return (i >= o) ? (i - o) : (i + na_queue_size - o);
+}
+
 
 static void na_queue_put(char *ptr, int len) {
   int i = na_input_offs;
 
-  if (len <= 0)
+  if (len <= 0) {
+    fprintf(stderr, "xmms-netaudio: na_queue_put: len <= 0\n");
     return;
+  }
+  if (na_queue_free() < len) {
+    fprintf(stderr, "xmms-netaudio: na_queue_put: overflow\n");
+    return;
+  }
 
   if ((i + len) <= na_queue_size) {
     memcpy(&na_queue[i], ptr, len);
@@ -76,6 +92,28 @@ static void na_queue_put(char *ptr, int len) {
   na_input_offs = i;
 }
 
+static void na_queue_get(char *dst, int len) {
+  int o = na_output_offs;
+
+  if (len <= 0) {
+    fprintf(stderr, "xmms-netaudio: na_queue_get: len <= 0\n");
+    return;
+  }
+  if (na_queue_content() < len) {
+    fprintf(stderr, "xmms-netaudio: na_queue_get: underflow\n");
+    return;
+  }
+
+  if ((o + len) <= na_queue_size) {
+    memcpy(dst, &na_queue[o], len);
+  } else {
+    int f = na_queue_size - o;
+    memcpy(dst, &na_queue[o], f);
+    memcpy(dst + f, &na_queue[o + f], len - f);
+  }
+  o = (o + len) % na_queue_size;
+  na_output_offs = o;
+}
 
 static void na_init(void) {
   na_queue = malloc(na_queue_size);
@@ -123,10 +161,13 @@ static int na_open_audio(AFormat fmt, int rate, int nch) {
   na_format = fmt;
   ret = typesize(fmt);
   na_cps = ret * rate * nch;
+
+  na_input_offs = na_output_offs = 0;
   return 1;
 }
 
 static void na_write_audio(void *ptr, int length) {
+  na_input_bytes += length;
   if (length <= 0) {
     fprintf(stderr, "xmms-netaudio: na_write_audio: length <= 0\n");
     return;
@@ -136,14 +177,13 @@ static void na_write_audio(void *ptr, int length) {
     return;
   }
   na_queue_put((char *) ptr, length);
+  na_output_bytes += length;
 }
 
 static void na_send(void *ptr, int length) {
   char *buf;
   int ret, written;
   struct pollfd pfd;
-
-  na_input_bytes += length;
 
   buf = (char *) ptr;
   written = 0;
@@ -189,7 +229,7 @@ static void na_pause(short paused) {
 }
 
 static int na_buffer_free(void) {
-  return 10240;
+  return na_queue_free();
 }
 
 static int na_buffer_playing(void) {
