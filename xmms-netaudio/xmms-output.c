@@ -116,6 +116,7 @@ static void na_queue_get(char *dst, int len) {
 }
 
 static void na_init(void) {
+  fprintf(stderr, "na_init\n");
   na_queue = malloc(na_queue_size);
   if (!na_queue) {
     fprintf(stderr, "xmms-netaudio: na_init: malloc failed\n");
@@ -145,16 +146,14 @@ static int typesize(AFormat fmt) {
 
 static int na_open_audio(AFormat fmt, int rate, int nch) {
   int ret;
-
+  fprintf(stderr, "na_open_audio\n");
   if (!na_valid) {
     fprintf(stderr, "xmms-netaudio: init failed, but open was called\n");
     return 0;
   }
-
-  na_input_bytes = na_output_bytes = 0;
   na_sockfd = net_open("shd.ton.tut.fi", "5555", "tcp");
   if (na_sockfd < 0) {
-    return 0;
+    /* return 0; */
   }
   na_rate = rate;
   na_channels = nch;
@@ -163,6 +162,7 @@ static int na_open_audio(AFormat fmt, int rate, int nch) {
   na_cps = ret * rate * nch;
 
   na_input_offs = na_output_offs = 0;
+  na_input_bytes = na_output_bytes = 0;
   return 1;
 }
 
@@ -177,6 +177,7 @@ static void na_write_audio(void *ptr, int length) {
     return;
   }
   na_queue_put((char *) ptr, length);
+  na_output_offs = na_input_offs;
   na_output_bytes += length;
 }
 
@@ -226,6 +227,7 @@ static void na_flush(int time) {
 }
 
 static void na_pause(short paused) {
+  paused = paused;
 }
 
 static int na_buffer_free(void) {
@@ -233,14 +235,21 @@ static int na_buffer_free(void) {
 }
 
 static int na_buffer_playing(void) {
-  return (na_sockfd >= 0);
+  /* disk writer plugin always returns zero, why? */
+  return 0;
 }
 
 static int na_output_time(void) {
+  if (na_cps == 0)
+    return 0;
+  /* fprintf(stderr, "output: na_output_bytes = %lld na_cps = %d\n", na_output_bytes, na_cps); */
   return (int) (na_output_bytes * 1000 / na_cps);
 }
 
 static int na_written_time(void) {
+  if (na_cps == 0)
+    return 0;
+  /* fprintf(stderr, "written: na_input_bytes = %lld na_cps = %d\n", na_input_bytes, na_cps); */
   return (int) (na_input_bytes * 1000 / na_cps);
 }
 
