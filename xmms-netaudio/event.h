@@ -13,8 +13,7 @@ struct event_queue {
 };
 
 void event_handler(struct event_queue *q);
-int event_append(struct event_queue *q, struct event *e);
-int event_init(struct event_queue *q);
+int event_append(struct event_queue *q, void *f, void *arg);
+int event_init(struct event_queue *q, int max);
 
 #endif
-
