@@ -4,11 +4,14 @@
 struct ring_buf_t {
   int size;        /* ring buf size */
   char *buf;       /* ring buffer */
+  int given_buf;   /* if zero, ring_buf_init() allocated the 'buf', otherwise
+		      ring_buf_init() was given the 'buf'. if this is non-zero
+		      ring_buf_destroy() will not free() the 'buf' */
   int input_offs;  /* position where to put stuff */
   int output_offs; /* position from where to get stuff */
 };
 
-int ring_buf_init(struct ring_buf_t *r, int size);
+int ring_buf_init(struct ring_buf_t *r, void *buf, int size);
 void ring_buf_destroy(struct ring_buf_t *r);
 void ring_buf_reset(struct ring_buf_t *r);
 

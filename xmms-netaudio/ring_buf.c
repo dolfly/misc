@@ -1,9 +1,35 @@
+/* Copyright (c) 2003 Heikki Orsila <heikki.orsila@tut.fi>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "ring_buf.h"
 
-int ring_buf_init(struct ring_buf_t *r, int size) {
+/* buf may be zero, in that case init will allocate the buffer. if ring buffer
+   allocates the buffer by itself, it will also free() it in
+   ring_buffer_destroy(). However, if the 'buf' was given by the user for the
+   init, then ring_buffer_destroy() will not free() it.
+*/
+int ring_buf_init(struct ring_buf_t *r, void *buf, int size) {
   if (!r) {
     fprintf(stderr, "ring_buf_init: null pointer\n");
     return 0;
@@ -14,10 +40,19 @@ int ring_buf_init(struct ring_buf_t *r, int size) {
   }
   r->size = size;
   memset(r, 0, sizeof(struct ring_buf_t));
-  r->buf = malloc(r->size);
-  if (!r->buf) {
-    fprintf(stderr, "ring_buf_init: malloc failed\n");
-    return 0;
+
+  if (buf) {
+    /* user gave the buf. this will not be freed in ring_buf_destroy() */
+    r->buf = (char *) buf;
+    r->given_buf = 1;
+  } else {
+    /* buffer is allocated. this will be freed in ring_buf_destroy() */  
+    r->buf = malloc(r->size);
+    r->given_buf = 0;
+    if (!r->buf) { 
+      fprintf(stderr, "ring_buf_init: malloc failed\n");
+      return 0;
+    }
   }
   return 1;
 }
@@ -27,11 +62,17 @@ void ring_buf_destroy(struct ring_buf_t *r) {
     fprintf(stderr, "ring_buf_destroy: tried to free null pointer\n");
     return;
   }
-  free(r->buf);
+  if (!r->given_buf) {
+    if (r->buf) {
+      free(r->buf);
+    } else {
+      fprintf(stderr, "ring_buf_destroy: buffer was zero\n");
+    }
+  }
   r->buf = 0;
 }
 
-void rinf_buf_reset(struct ring_buf_t *r) {
+void ring_buf_reset(struct ring_buf_t *r) {
   if (!r) {
     fprintf(stderr, "ring_buf_reset: null pointer\n");
     return;

@@ -62,7 +62,7 @@ struct ring_buf_t rb;
 
 static void na_init(void) {
   na_valid = 0;
-  if (!ring_buf_init(&rb, na_queue_size)) {
+  if (!ring_buf_init(&rb, 0, na_queue_size)) {
     fprintf(stderr, "xmms-netaudio: na_init: no ring buffer\n");
     return;
   }

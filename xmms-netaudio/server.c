@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
     exit(-1);
   }
 
-  if (!ring_buf_init(&rb, dspbufsize)) {
+  if (!ring_buf_init(&rb, 0, dspbufsize)) {
     fprintf(stderr, "xmms-netaudio: ring buf init failed\n");
     exit(-1);
   }
