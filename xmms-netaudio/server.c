@@ -38,17 +38,26 @@ struct stream {
 
 static struct stream in_stream;
 
+static void dump_buf(unsigned char *buf, int size) {
+  int i;
+  for (i = 0; i < size; i++) {
+    fprintf(stderr, "%.2x ", buf[i]);
+  }
+  fprintf(stderr, "\n");
+}
+
+
 static int init_dsp(int fd, struct na_meta *meta) {
   int is_stereo;
   int fmt, rate, nch;
   int tmp;
-  fmt = ntohl(meta->fmt);
-  rate = ntohl(meta->rate);
-  nch = ntohl(meta->nch);
-  fprintf(stderr, "fmt = %x rate = %x nch = %x\n", fmt, rate, nch);
+  fmt = meta->fmt;
+  rate = meta->rate;
+  nch = meta->nch;
+  fprintf(stderr, "xmms-netaudio: fmt = %x rate = %x nch = %x\n", fmt, rate, nch);
   switch (fmt) {
-  case NA_FMT_S16_BE: case NA_FMT_S16_LE: case NA_FMT_S16_NE:
-    break;
+  case NA_FMT_S16_LE: fmt = AFMT_S16_LE; break;
+  case NA_FMT_S16_NE: fmt = AFMT_S16_NE; break;
   default:
     fprintf(stderr, "xmms-netaudio: illegal format (%d)\n", fmt);
     return 0;
@@ -61,16 +70,19 @@ static int init_dsp(int fd, struct na_meta *meta) {
     fprintf(stderr, "xmms-netaudio: illegal rate\n");
     return 0;
   }
-  if (ioctl(fd, SNDCTL_DSP_SETFMT, AFMT_S16_LE)) {
-    fprintf(stderr, "xmms-netaudio: setfmt failed\n");
+  tmp = fmt;
+  if (ioctl(fd, SNDCTL_DSP_SETFMT, &tmp)) {
+    perror("xmms-netaudio: setfmt failed");
     return 0;
   }
   is_stereo = (nch == 2);
   if (ioctl(fd, SNDCTL_DSP_STEREO, &is_stereo)) {
-    fprintf(stderr, "xmms-netaudio: stereo failed\n");
+    perror("xmms-netaudio: stereo failed");
+    return 0;
   }
   if (ioctl(fd, SNDCTL_DSP_SPEED, &rate)) {
-    fprintf(stderr, "xmms-netaudio: rate failed\n");
+    perror("xmms-netaudio: rate failed");
+    return 0;
   }
   ioctl (fd, SOUND_PCM_READ_RATE, &tmp);
   /* Some soundcards have a bit of tolerance here (10%) */
@@ -96,7 +108,7 @@ static void open_dsp(void *meta) {
     perror("xmms-netaudio: can not open audio device");
     return;
   }
-  if (!init_dsp(dspfd, meta)) {
+  if (!init_dsp(dspfd, (struct na_meta *) meta)) {
     /* do some stuff to stop processing input stream */
     close_dsp();
   }
@@ -120,8 +132,14 @@ static int stream_input(struct stream *s) {
     } else {
       s->meta_size += ret;
     }
+    /* dump_buf((unsigned char *) (&s->meta), meta_len); */
     if (s->meta_size == meta_len) {
-      event_append(&eq, open_dsp, s);
+      /* fix values to native endian */
+      s->meta.fmt = ntohl(s->meta.fmt);
+      s->meta.rate = ntohl(s->meta.rate);
+      s->meta.nch = ntohl(s->meta.nch);
+      /* setup open dsp event to be executed */
+      event_append(&eq, open_dsp, &s->meta);
     }
 
   } else {
@@ -144,7 +162,7 @@ static int dsp_write(char *buf, int size, void *arg) {
   ret = write(fd, buf, size);
   if (ret < 0) {
     if (errno != EINTR) {
-      perror("dsp_write");
+      perror("xmms-netaudio: dsp_write");
     }
     return 0;
   } else if (ret == 0) {
