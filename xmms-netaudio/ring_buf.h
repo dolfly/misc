@@ -3,13 +3,19 @@
 
 struct ring_buf_t {
   int size;        /* ring buf size */
-  char *queue;     /* ring buffer */
+  char *buf;       /* ring buffer */
   int input_offs;  /* position where to put stuff */
   int output_offs; /* position from where to get stuff */
 };
 
-void ring_buf_get(char *dst, int len, struct ring_buf_t *q);
-void ring_buf_put(char *ptr, int len, struct ring_buf_t *q);
+int ring_buf_init(struct ring_buf_t *r, int size);
+void ring_buf_destroy(struct ring_buf_t *r);
+void ring_buf_reset(struct ring_buf_t *r);
+
+int ring_buf_free(struct ring_buf_t *r);
+int ring_buf_content(struct ring_buf_t *r);
+void ring_buf_get(char *dst, int len, struct ring_buf_t *r);
+void ring_buf_put(char *ptr, int len, struct ring_buf_t *r);
 
 #endif
 
