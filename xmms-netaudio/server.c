@@ -25,7 +25,7 @@ int dspfd;
 struct event_queue eq;
 
 #define MAX_INPUT_SIZE 4096
-static const int rbsize = 524288;
+static const int rbsize = 32768;
 
 struct stream {
   int fd;
@@ -50,14 +50,15 @@ static void dump_buf(unsigned char *buf, int size) {
 static int init_dsp(int fd, struct na_meta *meta) {
   int is_stereo;
   int fmt, rate, nch;
-  int tmp;
+  int dspfmt, tmp;
+  unsigned long formats;
   fmt = meta->fmt;
   rate = meta->rate;
   nch = meta->nch;
   fprintf(stderr, "xmms-netaudio: fmt = %x rate = %x nch = %x\n", fmt, rate, nch);
   switch (fmt) {
-  case NA_FMT_S16_LE: fmt = AFMT_S16_LE; break;
-  case NA_FMT_S16_NE: fmt = AFMT_S16_NE; break;
+  case NA_FMT_S16_LE: dspfmt = AFMT_S16_LE; break;
+  case NA_FMT_S16_NE: dspfmt = AFMT_S16_NE; break;
   default:
     fprintf(stderr, "xmms-netaudio: illegal format (%d)\n", fmt);
     return 0;
@@ -70,7 +71,18 @@ static int init_dsp(int fd, struct na_meta *meta) {
     fprintf(stderr, "xmms-netaudio: illegal rate\n");
     return 0;
   }
-  tmp = fmt;
+
+  if (ioctl(fd, SNDCTL_DSP_GETFMTS, &formats)) {
+    perror ("xmms-netaudio: getfmts failed");
+    return 0;
+  }
+
+  tmp = 0x00040000 + 12;
+  if (ioctl(fd, SNDCTL_DSP_SETFRAGMENT, &tmp)) {
+    perror ("xmms-netaudio: setfragment failed");
+  }
+
+  tmp = dspfmt;
   if (ioctl(fd, SNDCTL_DSP_SETFMT, &tmp)) {
     perror("xmms-netaudio: setfmt failed");
     return 0;
@@ -90,6 +102,7 @@ static int init_dsp(int fd, struct na_meta *meta) {
     fprintf (stderr, "xmms-netaudio: can't use sound with desired frequency (%d)\n", rate);
     return 0;
   }
+  fprintf(stderr, "xmms-netaudio: audio setup ok\n");
   return 1;
 }
 
@@ -100,6 +113,8 @@ static void close_dsp(void) {
     sleep(1);
   }
   dspfd = -1;
+  fprintf(stderr, "xmms-netaudio: dsp closed\n");
+  exit(-1);
 }
 
 static void open_dsp(void *meta) {
@@ -143,15 +158,29 @@ static int stream_input(struct stream *s) {
     }
 
   } else {
-    ret = read(s->fd, buf, sizeof(buf));
-    if (ret > 0) {
-      ring_buf_put(buf, ret, &s->rb);
-    } else if (ret == 0) {
-      
+    int free = ring_buf_free(&s->rb);
+    if (free > 0) {
+      free = (free <= ((int) sizeof(buf))) ? free : sizeof(buf);
+      ret = read(s->fd, buf, sizeof(buf));
+      if (ret > 0) {
+	int i, sum = 0;
+	for (i=0; i<ret; i++) {
+	  sum += buf[i];
+	}
+	fprintf(stderr, "checksum: %d\n", sum);
+	ring_buf_put(buf, ret, &s->rb);
+      } else if (ret == 0) {
+	fprintf(stderr, "stream input 0\n");
+	exit(-1);
+      } else {
+	perror("stream input error");
+	exit(-1);
+      }
+      fprintf(stderr, "stream_input: ret = %d\n", ret);
     } else {
-
+      fprintf(stderr, "no space in ring buf. stall.\n");
+      sleep(1);
     }
-    fprintf(stderr, "stream_input: ret = %d\n", ret);
   }
   return 1;
 }
@@ -159,7 +188,20 @@ static int stream_input(struct stream *s) {
 static int dsp_write(char *buf, int size, void *arg) {
   int fd = (int) arg;
   int ret;
+  /*
+  int i;
+  for (i=0; i<size; i++) {
+    buf[i] = (char) ((i%0xf)<<4);
+  }
+  */
+  int i, sum = 0;
+  for (i=0; i<size; i++) {
+    sum += buf[i];
+  }
+  fprintf(stderr, "write checksum: %d\n", sum);
+
   ret = write(fd, buf, size);
+  fprintf(stderr, "dsp_write: %d\n", ret);
   if (ret < 0) {
     if (errno != EINTR) {
       perror("xmms-netaudio: dsp_write");
