@@ -21,7 +21,7 @@ extern int errno;
 
 static const int rbsize = 524288;
 
-struct stream_t {
+struct stream {
   int fd;
   int meta_size;
   long long output;
@@ -29,7 +29,7 @@ struct stream_t {
   struct ring_buf_t rb;
 };
 
-static struct stream_t in_stream;
+static struct stream in_stream;
 
 static int init_dsp(int fd, struct na_meta *meta) {
   int is_stereo;
@@ -69,7 +69,7 @@ static int init_dsp(int fd, struct na_meta *meta) {
   return 1;
 }
 
-static int stream_input(struct stream_t *s) {
+static int stream_input(struct stream *s) {
   int ret;
   int meta_len = (int) sizeof(struct na_meta);
   char buf[65536];
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     exit(-1);
   }
 
-  memset(&in_stream, 0, sizeof(struct stream_t));
+  memset(&in_stream, 0, sizeof(struct stream));
 
   if (!ring_buf_init(&in_stream.rb, 0, rbsize)) {
     fprintf(stderr, "xmms-netaudio: ring buf init failed\n");
