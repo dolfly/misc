@@ -12,3 +12,7 @@ server. For example:
 
 $ ./xmms-netaudio -p 5555
 will listen to port 5555 for incoming song data.
+
+WARNING
+DO NOT USE ANY OTHER PORT THAN 5555 AT THE MOMENT. XMMS PLUGIN ASSUMES PORT
+5555 ALWAYS! WILL BE FIXED SOON.
