@@ -33,7 +33,7 @@ net.o:	net.c net.h
 ring_buf.o:	ring_buf.c ring_buf.h
 	$(CC) $(CFLAGS) -c ring_buf.c
 
-install:	libxmms-netaudio.la
+install:	libxmms-netaudio.la xmms-netaudio
 	mkdir -p $(PLUGINDIR) || true
 	install .libs/libxmms-netaudio.so $(PLUGINDIR)/
 

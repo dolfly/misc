@@ -10,11 +10,12 @@
 
 #include "net.h"
 #include "meta.h"
+#include "ring_buf.h"
 
 extern int errno;
 
 static const int dspbufsize = 524288;
-static char *dspbuf = 0;
+static struct ring_buf_t rb;
 
 static int stream_input(int fd) {
   return 0;
@@ -60,9 +61,9 @@ int main(int argc, char **argv) {
     exit(-1);
   }
 
-  dspbuf = malloc(dspbufsize);
-  if (!dspbuf) {
-    fprintf(stderr, "xmms-netaudio: not enough memory\n");
+  if (!ring_buf_init(&rb, dspbufsize)) {
+    fprintf(stderr, "xmms-netaudio: ring buf init failed\n");
+    exit(-1);
   }
 
   pfd[0].fd = net_listen(0, port, "tcp");
