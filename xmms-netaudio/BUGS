@@ -1,0 +1,10 @@
+
+17022003-1:
+ strange hangups between songs.. perhaps waiting for fd event that will never
+ happen? or block indefinitely?
+
+17052003-2:
+ cust.wings of death: first switch to sub 2, wait for end, sound freezes.
+ happens only with xmms-netaudio, oss plugin output would work.
+
+
