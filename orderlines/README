@@ -1,0 +1,21 @@
+reverselines 0.1
+
+USAGE: reverselines [-0] [-c] [-h] [-r]
+
+DESCRIPTION:
+reverselines reads all lines from stdin, and then prints them in a specific
+order. By default the order is reverse order.
+
+ -0 / --null       Make \0 as the separator instead of \n. Potentially
+                   useful with 'find -print0'.
+ -h / --help       Print help.
+ -c / --check      Force /dev/urandom check for -r.
+ -r / --randomize  Print out in random order.
+
+PROBLEMS:
+Operating systems which don't have /dev/urandom use time(0) to initialize
+seed for srand48(). With -c option, error is given if /dev/urandom is not
+available.
+
+AUTHOR: Heikki Orsila <heikki.orsila@iki.fi>
+COPYING: The program, including the source, is public domain.

@@ -1,0 +1,17 @@
+CC = gcc
+CFLAGS = -Wall -O2
+
+reverselines:	reverselines.c
+	$(CC) $(CFLAGS) -DRLVERSION=\"{VERSION}\" -o reverselines reverselines.c
+
+install:	reverselines
+	mkdir -p {PREFIX}/bin
+	install reverselines {PREFIX}/bin/
+
+test:	reverselines
+	@echo "should print numbers in decreasing order"
+	@seq 10 |./reverselines
+
+clean:	
+	rm -f reverselines
+
