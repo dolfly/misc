@@ -218,8 +218,10 @@ static void na_send(void *ptr, int length) {
 }
 
 static void na_close_audio(void) {
-  shutdown(na_sockfd, SHUT_RDWR);
-  while (close(na_sockfd));
+  if (na_sockfd >= 0) {
+    shutdown(na_sockfd, SHUT_RDWR);
+    while (close(na_sockfd));
+  }
   na_sockfd = -1;
 }
 
