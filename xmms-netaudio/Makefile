@@ -6,6 +6,8 @@ LIBS=`xmms-config --libs`
 PLUGINDIR=/home/shd/.xmms/Plugins/Output
 OBJS=xmms-output.lo net.lo
 
+all:	libxmms-netaudio.la xmms-netaudio
+
 libxmms-netaudio.la:	$(OBJS)
 	libtool --mode=link $(CC) $(FLAGS) $(LIBS) $(OBJS) -o libxmms-netaudio.la -rpath $(PLUGINDIR) -module -avoid-version -pthread
 
