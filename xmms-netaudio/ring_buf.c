@@ -196,6 +196,6 @@ int ring_buf_process(int (*process)(char *buf, int size, void *arg),
     len = r->size - o;
   }
   processed = process(&r->buf[o], len, arg);
-  r->output_offs = (o + len) % processed;
+  r->output_offs = (o + processed) % r->size;
   return processed;
 }

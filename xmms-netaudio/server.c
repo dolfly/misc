@@ -20,14 +20,14 @@
 
 extern int errno;
 
-int dspfd;
-
-struct event_queue eq;
+static struct event_queue eq;
 
 #define MAX_INPUT_SIZE 4096
-static const int rbsize = 32768;
+
+static const int rbsize = 16384;
 
 struct stream {
+  int valid;
   int fd;
   int meta_size;
   long long output;
@@ -37,14 +37,7 @@ struct stream {
 };
 
 static struct stream in_stream;
-
-static void dump_buf(unsigned char *buf, int size) {
-  int i;
-  for (i = 0; i < size; i++) {
-    fprintf(stderr, "%.2x ", buf[i]);
-  }
-  fprintf(stderr, "\n");
-}
+static struct stream dsp_stream;
 
 
 static int init_dsp(int fd, struct na_meta *meta) {
@@ -55,7 +48,6 @@ static int init_dsp(int fd, struct na_meta *meta) {
   fmt = meta->fmt;
   rate = meta->rate;
   nch = meta->nch;
-  fprintf(stderr, "xmms-netaudio: fmt = %x rate = %x nch = %x\n", fmt, rate, nch);
   switch (fmt) {
   case NA_FMT_S16_LE: dspfmt = AFMT_S16_LE; break;
   case NA_FMT_S16_NE: dspfmt = AFMT_S16_NE; break;
@@ -64,11 +56,11 @@ static int init_dsp(int fd, struct na_meta *meta) {
     return 0;
   }
   if (rate != 44100) {
-    fprintf(stderr, "xmms-netaudio: illegal rate\n");
+    fprintf(stderr, "xmms-netaudio: illegal rate (%d)\n", rate);
     return 0;
   }
   if (nch != 2) {
-    fprintf(stderr, "xmms-netaudio: illegal rate\n");
+    fprintf(stderr, "xmms-netaudio: illegal number of channels (%d)\n", nch);
     return 0;
   }
 
@@ -102,31 +94,38 @@ static int init_dsp(int fd, struct na_meta *meta) {
     fprintf (stderr, "xmms-netaudio: can't use sound with desired frequency (%d)\n", rate);
     return 0;
   }
-  fprintf(stderr, "xmms-netaudio: audio setup ok\n");
   return 1;
 }
 
-static void close_dsp(void) {
-  /* do dsp reset here */
-  while (close(dspfd)) {
-    perror("xmms-netaudio: not able to close dsp");
+static void close_stream(struct stream *s) {
+  if (s->fd < 0)
+    return;
+  while (close(s->fd)) {
+    perror("xmms-netaudio: not able to close stream");
     sleep(1);
   }
-  dspfd = -1;
-  fprintf(stderr, "xmms-netaudio: dsp closed\n");
-  exit(-1);
+  s->fd = -1;
+  if (s->rb.buf) {
+    ring_buf_destroy(&s->rb);
+  }
+  s->valid = 0;
+  fprintf(stderr, "xmms-netaudio: stream closed\n");
 }
 
+
 static void open_dsp(void *meta) {
-  dspfd = open("/dev/dsp", O_WRONLY);
-  if (dspfd < 0) {
+  dsp_stream.fd = open("/dev/dsp", O_WRONLY);
+  if (dsp_stream.fd < 0) {
     perror("xmms-netaudio: can not open audio device");
+    close_stream(&in_stream);
     return;
   }
-  if (!init_dsp(dspfd, (struct na_meta *) meta)) {
+  if (!init_dsp(dsp_stream.fd, (struct na_meta *) meta)) {
     /* do some stuff to stop processing input stream */
-    close_dsp();
+    close_stream(&in_stream);
+    close_stream(&dsp_stream);
   }
+  dsp_stream.valid = 1;
 }
 
 static int stream_input(struct stream *s) {
@@ -163,20 +162,16 @@ static int stream_input(struct stream *s) {
       free = (free <= ((int) sizeof(buf))) ? free : sizeof(buf);
       ret = read(s->fd, buf, sizeof(buf));
       if (ret > 0) {
-	int i, sum = 0;
-	for (i=0; i<ret; i++) {
-	  sum += buf[i];
-	}
-	fprintf(stderr, "checksum: %d\n", sum);
 	ring_buf_put(buf, ret, &s->rb);
       } else if (ret == 0) {
-	fprintf(stderr, "stream input 0\n");
-	exit(-1);
+	fprintf(stderr, "input stream eof\n");
+	s->finished = 1;
+	return 1;
       } else {
-	perror("stream input error");
-	exit(-1);
+	perror("input stream input error");
+	s->finished = 1;
+	return 0;
       }
-      fprintf(stderr, "stream_input: ret = %d\n", ret);
     } else {
       fprintf(stderr, "no space in ring buf. stall.\n");
       sleep(1);
@@ -188,23 +183,11 @@ static int stream_input(struct stream *s) {
 static int dsp_write(char *buf, int size, void *arg) {
   int fd = (int) arg;
   int ret;
-  /*
-  int i;
-  for (i=0; i<size; i++) {
-    buf[i] = (char) ((i%0xf)<<4);
-  }
-  */
-  int i, sum = 0;
-  for (i=0; i<size; i++) {
-    sum += buf[i];
-  }
-  fprintf(stderr, "write checksum: %d\n", sum);
-
   ret = write(fd, buf, size);
-  fprintf(stderr, "dsp_write: %d\n", ret);
   if (ret < 0) {
     if (errno != EINTR) {
       perror("xmms-netaudio: dsp_write");
+      close_stream(&dsp_stream);
     }
     return 0;
   } else if (ret == 0) {
@@ -221,7 +204,6 @@ static int dsp_output(int fd, struct stream *s) {
   if (content > 0) {
     /* process at most 4096 bytes from ring buffer with dsp_write() */
     ret = ring_buf_process(dsp_write, (void *) fd, 4096, &s->rb);
-    fprintf(stderr, "dsp_output %d\n", ret);
   }
   return 1;
 }
@@ -235,7 +217,7 @@ int main(int argc, char **argv) {
   int ret;
 
   if (argc < 3) {
-    fprintf(stderr, "xmms-netaudio: not enough parameters. give a port to listen.\n");
+    fprintf(stderr, "xmms-netaudio: not enough parameters. give a port to listen. use -p port.\n");
     exit(-1);
   }
 
@@ -262,7 +244,6 @@ int main(int argc, char **argv) {
   }
 
   memset(&in_stream, 0, sizeof(struct stream));
-
   if (!ring_buf_init(&in_stream.rb, 0, rbsize)) {
     fprintf(stderr, "xmms-netaudio: ring buf init failed\n");
     exit(-1);
@@ -279,7 +260,10 @@ int main(int argc, char **argv) {
   is_connected = 0;
   in_stream.fd = -1;
   in_stream.meta_size = 0;
-  dspfd = -1;
+  in_stream.valid = 0;
+
+  dsp_stream.fd = -1;
+  dsp_stream.valid = 0;
 
   while (1) {
 
@@ -299,13 +283,16 @@ int main(int argc, char **argv) {
     nfds++;
   no_in_fd:
 
-    if (dspfd >= 0) {
-      if (ring_buf_content(&in_stream.rb) > 0) {
-	pfd[nfds].fd = dspfd;
-	pfd[nfds].events = POLLOUT;
-	nfds++;
-      }
-    }
+    if (!dsp_stream.valid || dsp_stream.fd < 0)
+      goto no_dsp_fd;
+    if (ring_buf_content(&in_stream.rb) == 0)
+      goto no_dsp_fd;
+
+    pfd[nfds].fd = dsp_stream.fd;
+    pfd[nfds].events = POLLOUT;
+    nfds++;
+
+  no_dsp_fd:
 
     ret = poll(pfd, nfds, -1);
     if (ret == 0) {
@@ -317,20 +304,40 @@ int main(int argc, char **argv) {
       }
     }
     if (pfd[0].revents & POLLIN) {
+
+      if (in_stream.valid) {
+	while (close(in_stream.fd)) {
+	  fprintf(stderr, "xmms-netaudio: closing existing input stream\n");
+	  sleep(1);
+	}
+	in_stream.fd = -1;
+	in_stream.finished = 0;
+	in_stream.meta_size = -1;
+	in_stream.valid = 0;
+      }
+
       in_stream.fd = accept(pfd[0].fd, 0, 0);
       if (in_stream.fd < 0) {
 	perror("xmms-netaudio: accept error");
 	exit(-1);
       }
-      pfd[1].fd = in_stream.fd;
-      pfd[1].events = POLLOUT;
+      in_stream.valid = 1;
     }
 
     for (i = 1; i < nfds; i++) {
-      if (pfd[i].fd == in_stream.fd) {
-	(void) stream_input(&in_stream);
-      } else if (pfd[i].fd == dspfd) {
-	(void) dsp_output(dspfd, &in_stream);
+      if (in_stream.valid) {
+	if (pfd[i].fd == in_stream.fd) {
+	  if (pfd[i].events & POLLIN) {
+	    (void) stream_input(&in_stream);
+	  }
+	}
+      }
+      if (dsp_stream.valid) {
+	if (pfd[i].fd == dsp_stream.fd) {
+	  if (pfd[i].revents & POLLOUT) {
+	    (void) dsp_output(dsp_stream.fd, &in_stream);
+	  }
+	}
       }
     }
   }
