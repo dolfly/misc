@@ -60,7 +60,7 @@ net_listen(char *hostname, char *port, char *protocol)
   }
   freeaddrinfo(ressave);
 
-  if(listenfd >= 0)
+  if (listenfd >= 0)
     listen(listenfd, 5);
 
   return listenfd;
