@@ -15,6 +15,7 @@ int main(int argc, char **argv) {
 	char *descset = "[A-Za-z0-9./]";
 	int set_len;
 	int i;
+	char pass[10];
 
 	if (argc < 2) {
 		fprintf(stderr, "not enough args. you must give the password argument for %s\n\n", argv[0]);
@@ -25,7 +26,21 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "\tpassword is at most 8 characters. salt is at most 2 characters, and\n\tit is optional\n");
 		return -1;
 	}
-	if (strlen (argv[1]) == 0 || strlen(argv[1]) > 8) {
+
+	strncpy(pass, argv[1], 8);
+	pass[8] = 0;
+
+	/* read passwd from stdin. salt is either given or randomized. */
+	if (strcmp(pass, "-") == 0) {
+		char *ret;
+		int len;
+		ret = fgets(pass, sizeof(pass), stdin);
+		len = strlen(pass);
+		if (pass[len - 1] == '\n')
+			pass[len - 1] = 0;
+	}
+
+	if (strlen (pass) == 0 || strlen(pass) > 8) {
 		fprintf(stderr, "password must be longer than 0 characters, but at most 8 characters\n");
 		return -1;
 	}
@@ -66,6 +81,7 @@ int main(int argc, char **argv) {
 		}
 		salt[2] = 0;
 	}
-	printf("%s\n", crypt(argv[1], salt));
+
+	printf("%s\n", crypt(pass, salt));
 	return 0;
 }
