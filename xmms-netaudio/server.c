@@ -30,8 +30,9 @@ struct stream {
   int valid;
   int fd;
   int meta_size;
-  long long output;
+  long long bytes;
   int finished;
+  int flushing;
   struct na_meta meta;
   struct ring_buf_t rb;
 };
@@ -146,7 +147,6 @@ static int stream_input(struct stream *s) {
     } else {
       s->meta_size += ret;
     }
-    /* dump_buf((unsigned char *) (&s->meta), meta_len); */
     if (s->meta_size == meta_len) {
       /* fix values to native endian */
       s->meta.fmt = ntohl(s->meta.fmt);
@@ -163,17 +163,18 @@ static int stream_input(struct stream *s) {
       ret = read(s->fd, buf, sizeof(buf));
       if (ret > 0) {
 	ring_buf_put(buf, ret, &s->rb);
+	s->bytes += ret;
       } else if (ret == 0) {
-	fprintf(stderr, "input stream eof\n");
+	fprintf(stderr, "xmms-netaudio: input stream eof\n");
 	s->finished = 1;
 	return 1;
       } else {
-	perror("input stream input error");
+	perror("xmms-netaudio: input stream input error");
 	s->finished = 1;
 	return 0;
       }
     } else {
-      fprintf(stderr, "no space in ring buf. stall.\n");
+      fprintf(stderr, "xmms-netaudio: no space in ring buf. stall. report this\n");
       sleep(1);
     }
   }
@@ -212,7 +213,6 @@ int main(int argc, char **argv) {
   int i;
   char *port = 0;
   struct pollfd pfd[3];
-  int is_connected;
   int nfds;
   int ret;
 
@@ -257,9 +257,7 @@ int main(int argc, char **argv) {
   pfd[0].fd = net_listen(0, port, "tcp");
   pfd[0].events = POLLIN;
 
-  is_connected = 0;
   in_stream.fd = -1;
-  in_stream.meta_size = 0;
   in_stream.valid = 0;
 
   dsp_stream.fd = -1;
@@ -303,19 +301,23 @@ int main(int argc, char **argv) {
 	break;
       }
     }
+
     if (pfd[0].revents & POLLIN) {
 
       if (in_stream.valid) {
-	while (close(in_stream.fd)) {
-	  fprintf(stderr, "xmms-netaudio: closing existing input stream\n");
-	  sleep(1);
+	if (in_stream.finished) {
+	  while (close(in_stream.fd)) {
+	    fprintf(stderr, "xmms-netaudio: closing existing input stream\n");
+	    sleep(1);
+	  }
+	} else {
+	  ring_buf_reset(&in_stream.rb);
 	}
 	in_stream.fd = -1;
 	in_stream.finished = 0;
-	in_stream.meta_size = -1;
+	in_stream.meta_size = 0;
 	in_stream.valid = 0;
       }
-
       in_stream.fd = accept(pfd[0].fd, 0, 0);
       if (in_stream.fd < 0) {
 	perror("xmms-netaudio: accept error");
