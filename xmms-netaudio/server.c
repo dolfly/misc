@@ -10,6 +10,9 @@
 #include <sys/poll.h>
 #include <errno.h>
 
+#include <sys/ioctl.h>
+#include <sys/soundcard.h>
+
 #include "net.h"
 #include "meta.h"
 #include "ring_buf.h"
@@ -27,6 +30,44 @@ struct stream_t {
 };
 
 static struct stream_t in_stream;
+
+static int init_dsp(int fd, struct na_meta *meta) {
+  int is_stereo;
+  int rate;
+  int tmp;
+  if (meta->fmt != NA_FMT_S16_LE) {
+    fprintf(stderr, "xmms-netaudio: illegal format\n");
+    return 0;
+  }
+  if (meta->rate != 44100) {
+    fprintf(stderr, "xmms-netaudio: illegal rate\n");
+    return 0;
+  }
+  if (meta->nch != 2) {
+    fprintf(stderr, "xmms-netaudio: illegal rate\n");
+    return 0;
+  }
+
+  if (ioctl(fd, SNDCTL_DSP_SETFMT, AFMT_S16_LE)) {
+    fprintf(stderr, "xmms-netaudio: setfmt failed\n");
+    return 0;
+  }
+  is_stereo = meta->nch;
+  if (ioctl(fd, SNDCTL_DSP_STEREO, &is_stereo)) {
+    fprintf(stderr, "xmms-netaudio: stereo failed\n");
+  }
+  rate = (int) meta->rate;
+  if (ioctl(fd, SNDCTL_DSP_SPEED, &rate)) {
+    fprintf(stderr, "xmms-netaudio: rate failed\n");
+  }
+  ioctl (fd, SOUND_PCM_READ_RATE, &tmp);
+  /* Some soundcards have a bit of tolerance here (10%) */
+  if (tmp < (rate * 9 / 10) || tmp > (rate * 11 / 10)) {
+    fprintf (stderr, "xmms-netaudio: can't use sound with desired frequency (%d)\n", rate);
+    return 0;
+  }
+  return 1;
+}
 
 static int stream_input(struct stream_t *s) {
   int ret;
@@ -54,6 +95,7 @@ static int stream_input(struct stream_t *s) {
 }
 
 static int dsp_output(int fd) {
+  fd = fd;
   return 0;
 }
 
