@@ -24,12 +24,14 @@ int dspfd;
 
 struct event_queue eq;
 
+#define MAX_INPUT_SIZE 4096
 static const int rbsize = 524288;
 
 struct stream {
   int fd;
   int meta_size;
   long long output;
+  int finished;
   struct na_meta meta;
   struct ring_buf_t rb;
 };
@@ -38,30 +40,35 @@ static struct stream in_stream;
 
 static int init_dsp(int fd, struct na_meta *meta) {
   int is_stereo;
-  int rate;
+  int fmt, rate, nch;
   int tmp;
-  if (meta->fmt != NA_FMT_S16_LE) {
-    fprintf(stderr, "xmms-netaudio: illegal format\n");
+  fmt = ntohl(meta->fmt);
+  rate = ntohl(meta->rate);
+  nch = ntohl(meta->nch);
+  fprintf(stderr, "fmt = %x rate = %x nch = %x\n", fmt, rate, nch);
+  switch (fmt) {
+  case NA_FMT_S16_BE: case NA_FMT_S16_LE: case NA_FMT_S16_NE:
+    break;
+  default:
+    fprintf(stderr, "xmms-netaudio: illegal format (%d)\n", fmt);
     return 0;
   }
-  if (meta->rate != 44100) {
+  if (rate != 44100) {
     fprintf(stderr, "xmms-netaudio: illegal rate\n");
     return 0;
   }
-  if (meta->nch != 2) {
+  if (nch != 2) {
     fprintf(stderr, "xmms-netaudio: illegal rate\n");
     return 0;
   }
-
   if (ioctl(fd, SNDCTL_DSP_SETFMT, AFMT_S16_LE)) {
     fprintf(stderr, "xmms-netaudio: setfmt failed\n");
     return 0;
   }
-  is_stereo = meta->nch;
+  is_stereo = (nch == 2);
   if (ioctl(fd, SNDCTL_DSP_STEREO, &is_stereo)) {
     fprintf(stderr, "xmms-netaudio: stereo failed\n");
   }
-  rate = (int) meta->rate;
   if (ioctl(fd, SNDCTL_DSP_SPEED, &rate)) {
     fprintf(stderr, "xmms-netaudio: rate failed\n");
   }
@@ -75,6 +82,7 @@ static int init_dsp(int fd, struct na_meta *meta) {
 }
 
 static void close_dsp(void) {
+  /* do dsp reset here */
   while (close(dspfd)) {
     perror("xmms-netaudio: not able to close dsp");
     sleep(1);
@@ -89,6 +97,7 @@ static void open_dsp(void *meta) {
     return;
   }
   if (!init_dsp(dspfd, meta)) {
+    /* do some stuff to stop processing input stream */
     close_dsp();
   }
 }
@@ -96,10 +105,10 @@ static void open_dsp(void *meta) {
 static int stream_input(struct stream *s) {
   int ret;
   int meta_len = (int) sizeof(struct na_meta);
-  char buf[65536];
-
+  char buf[MAX_INPUT_SIZE];
   if (s->meta_size < meta_len) {
-    ret = read(s->fd, &buf[s->meta_size], meta_len - s->meta_size);
+    char *metabuf = (char *) (&s->meta);
+    ret = read(s->fd, metabuf + s->meta_size, meta_len - s->meta_size);
     if (ret == 0) {
       fprintf(stderr, "xmms-netaudio: couldn't get meta -> kill stream\n");
       return 0;
@@ -117,6 +126,13 @@ static int stream_input(struct stream *s) {
 
   } else {
     ret = read(s->fd, buf, sizeof(buf));
+    if (ret > 0) {
+      ring_buf_put(buf, ret, &s->rb);
+    } else if (ret == 0) {
+      
+    } else {
+
+    }
     fprintf(stderr, "stream_input: ret = %d\n", ret);
   }
   return 1;
@@ -206,12 +222,23 @@ int main(int argc, char **argv) {
   dspfd = -1;
 
   while (1) {
+
+    event_handler(&eq);
+
     nfds = 1;
-    if (in_stream.fd >= 0) {
-      pfd[nfds].fd = in_stream.fd;
-      pfd[nfds].events = POLLIN;
-      nfds++;
-    }
+
+    if (in_stream.fd < 0)
+      goto no_in_fd;
+    if (in_stream.finished)
+      goto no_in_fd;
+    if (ring_buf_free(&in_stream.rb) < MAX_INPUT_SIZE)
+      goto no_in_fd;
+
+    pfd[nfds].fd = in_stream.fd;
+    pfd[nfds].events = POLLIN;
+    nfds++;
+  no_in_fd:
+
     if (dspfd >= 0) {
       if (ring_buf_content(&in_stream.rb) > 0) {
 	pfd[nfds].fd = dspfd;

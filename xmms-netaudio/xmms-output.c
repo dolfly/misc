@@ -166,7 +166,16 @@ static void *na_write_loop(void *arg) {
 
 static int na_send_meta(AFormat fmt, int rate, int nch) {
   struct na_meta m;
-  m.fmt = htonl(fmt);
+  na_format_t f;
+  switch (fmt) {
+  case FMT_S16_BE: f = NA_FMT_S16_BE; break;
+  case FMT_S16_LE: f = NA_FMT_S16_LE; break;
+  case FMT_S16_NE: f = NA_FMT_S16_NE; break;
+  default:
+    fprintf(stderr, "xmms-netaudio: unknown format %d\n", fmt);
+    f = NA_FMT_S16_LE;
+  }
+  m.fmt = htonl(f);
   m.rate = htonl(rate);
   m.nch = htonl(nch);
   return na_send(na_sockfd, (char *) &m, sizeof(m));

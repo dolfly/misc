@@ -1,6 +1,6 @@
 
 CC=gcc
-CFLAGS= -W -Wall -O2
+CFLAGS= -W -Wall -O2 -g
 PFLAGS= $(CFLAGS) `glib-config --cflags` `xmms-config --cflags`
 LIBS=`xmms-config --libs`
 PLUGINDIR=/home/shd/.xmms/Plugins/Output
