@@ -1,9 +1,9 @@
-reverselines 0.1
+orderlines 0.1
 
-USAGE: reverselines [-0] [-c] [-h] [-r]
+USAGE: orderlines [-0] [-c] [-h] [-r]
 
 DESCRIPTION:
-reverselines reads all lines from stdin, and then prints them in a specific
+orderlines reads all lines from stdin, and then prints them in a specific
 order. By default the order is reverse order.
 
  -0 / --null       Make \0 as the separator instead of \n. Potentially

@@ -1,4 +1,4 @@
-/* reverselines by Heikki Orsila <heikki.orsila@iki.fi>. The source code is
+/* orderlines by Heikki Orsila <heikki.orsila@iki.fi>. The source code is
    in public domain. You may do anything with the source code.
 
    history:
@@ -63,10 +63,10 @@ static int rl_rand(void)
 
 void print_help(void)
 {
-  printf("reverselines %s\n\n", RLVERSION);
-  printf("USAGE: reverselines [-0] [-c] [-h] [-r]\n\n");
+  printf("orderlines %s\n\n", RLVERSION);
+  printf("USAGE: orderlines [-0] [-c] [-h] [-r]\n\n");
   printf("DESCRIPTION:\n");
-  printf("reverselines reads all lines from stdin, and then prints them in a specific\n");
+  printf("orderlines reads all lines from stdin, and then prints them in a specific\n");
   printf("order. By default the order is reverse order.\n\n");
   printf(" -0 / --null       Make \\0 as the separator instead of \\n. Potentially\n");
   printf("                   useful with \'find -print0\'.\n");

@@ -29,6 +29,6 @@ fi
 
 sed -e "s|{PREFIX}|$prefix|g" -e "s|{VERSION}|$version|g" < Makefile.in > Makefile
 
-echo "Would install reverselines binary to directory $prefix/bin."
+echo "Would install orderlines binary to directory $prefix/bin."
 echo ""
 echo "Configure succesful."
