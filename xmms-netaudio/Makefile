@@ -21,8 +21,8 @@ ring_buf.lo:	ring_buf.c ring_buf.h
 	libtool --mode=compile $(CC) $(CFLAGS) -c ring_buf.c
 
 
-xmms-netaudio:	server.o net.o ring_buf.o
-	$(CC) $(CFLAGS) -o xmms-netaudio server.o net.o ring_buf.o
+xmms-netaudio:	server.o net.o ring_buf.o event.o
+	$(CC) $(CFLAGS) -o xmms-netaudio server.o net.o ring_buf.o event.o
 
 server.o:	server.c meta.h
 	$(CC) $(CFLAGS) -c server.c
@@ -32,6 +32,9 @@ net.o:	net.c net.h
 
 ring_buf.o:	ring_buf.c ring_buf.h
 	$(CC) $(CFLAGS) -c ring_buf.c
+
+event.o:	event.c event.h
+	$(CC) $(CFLAGS) -c event.c
 
 install:	libxmms-netaudio.la xmms-netaudio
 	mkdir -p $(PLUGINDIR) || true
