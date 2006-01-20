@@ -95,7 +95,7 @@ int main(int argc, char **argv)
     double r = get_random();
     if (r < (1 / interval)) {
       int rv;
-      fprintf(stderr, "%lld: now\n", i);
+      fprintf(stderr, "Command run on time index %lld seconds.\n", i);
       rv = fork();
       if (rv == 0) {
 	execvp(argv[2], &argv[2]);
