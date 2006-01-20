@@ -1,3 +1,6 @@
+/* Poissonrun. No copyrights claimed.
+   Contact Heikki Orsila <heikki.orsila@iki.fi> for anything. */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -44,13 +47,41 @@ static double get_random(void)
 }
 
 
+static void print_help(void)
+{
+  printf("poissonrun by Heikki Orsila <heikki.orsila@iki.fi>. No copyrights claimed.\n");
+  printf("\n");
+  printf("The program runs a given command statistically every T seconds. The interval T\n");
+  printf("is given on the command line:\n");
+  printf("\n");
+  printf(" $ poissonrun T command arg1 arg2 ...\n");
+  printf("\n");
+  printf("Randomization happens once every second and based on that it is decided\n");
+  printf("if the command should be run. Time is not counted when the command is being\n");
+  printf("run. Time interval T should be big compared to command\n");
+  printf("execution time so that this process is statistically reasonable.\n");
+  printf("Time interval T should be given as a floating-point number bigger than 1.\n");
+  printf("\n");
+  printf("The program needs /dev/urandom to work.\n");
+  printf("\n");
+  printf("Example 1: Play a wav file statistically every 64 seconds. Danger: irritating.\n");
+  printf("\tpoissonrun 64 aplay foo.wav\n");
+}
+
+
 int main(int argc, char **argv)
 {
   long long i;
   double interval;
 
+  if ((argc == 2 && strcmp(argv[1], "-h") == 0) ||
+      (argc == 2 && strcmp(argv[1], "--help") == 0)) {
+    print_help();
+    return 0;
+  }
+
   if (argc < 3) {
-    fprintf(stderr, "Usage: %s timeinterval command args...\n", argv[0]);
+    fprintf(stderr, "Not enough args. 2 is a minimum.\n");
     return -1;
   }
 
