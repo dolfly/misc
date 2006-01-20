@@ -49,7 +49,7 @@ static double get_random(void)
 
 static void print_help(void)
 {
-  printf("poissonrun by Heikki Orsila <heikki.orsila@iki.fi>. No copyrights claimed.\n");
+  printf("poissonrun 0.01 by Heikki Orsila <heikki.orsila@iki.fi>. No copyrights claimed.\n");
   printf("\n");
   printf("The program runs a given command statistically every T seconds. The interval T\n");
   printf("is given on the command line:\n");
