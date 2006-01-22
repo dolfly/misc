@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -O2 -g
+CFLAGS = -Wall -O2 -g -I.
 LDFLAGS = 
 DDIR = poissonrun-{VERSION}
 
@@ -8,6 +8,9 @@ poissonrun:	poissonrun.c version.h
 
 install:	poissonrun
 	install poissonrun {PREFIX}/bin/
+
+clean:	
+	rm -f poissonrun
 
 mydist:	
 	mkdir -p $(DDIR)

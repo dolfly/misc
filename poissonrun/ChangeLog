@@ -1,6 +1,7 @@
 2006-01-23  Heikki Orsila <heikki.orsila@iki.fi>
 	* Version 0.02
 	- Added a configure script for easy and automatic installation.
+	- Portability fix for solaris. Added a replacement for stdint.h.
 
 2006-01-21  Heikki Orsila <heikki.orsila@iki.fi>
 	- Added quiet option (-q) to not print the time index when a command

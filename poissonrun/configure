@@ -22,6 +22,18 @@ for opt in "$@" ; do
 	esac
 done
 
+rm -f stdint.h
+cat > stdinttest.c <<EOF
+#include <stdint.h>
+int main(void) {uint8_t a = 0; uint32_t b = 0; return 0; }
+EOF
+gcc -o stdinttest stdinttest.c 2>/dev/null
+if test "$?" != "0" ; then
+    echo "#include <inttypes.h>" > stdint.h
+    echo "Warning: stdint.h is missing (needed for portable types)"
+    echo ""
+fi
+
 if test ! -z "$packageprefix" ; then
     prefix="$packageprefix/$prefix"
 fi
