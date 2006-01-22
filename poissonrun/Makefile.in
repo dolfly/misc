@@ -1,9 +1,14 @@
 CC = gcc
 CFLAGS = -Wall -O2 -g
 LDFLAGS = 
+DDIR = poissonrun-{VERSION}
 
 poissonrun:	poissonrun.c version.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
 install:	poissonrun
 	install poissonrun {PREFIX}/bin/
+
+mydist:	
+	mkdir -p $(DDIR)
+	cp ChangeLog Makefile.in configure poissonrun.c $(DDIR)/

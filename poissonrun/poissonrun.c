@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <sys/wait.h>
 
+#include "version.h"
+
 static int random_fd = -1;
 
 static double get_random(void)
@@ -49,7 +51,7 @@ static double get_random(void)
 
 static void print_help(void)
 {
-  printf("poissonrun 0.01 by Heikki Orsila <heikki.orsila@iki.fi>. No copyrights claimed.\n");
+  printf("poissonrun %s by Heikki Orsila <heikki.orsila@iki.fi>. No copyrights claimed.\n", VERSION);
   printf("\n");
   printf("The program runs a given command statistically every T seconds. The command may\n");
   printf("run at any second but on average it will be run once every T seconds.\n");
