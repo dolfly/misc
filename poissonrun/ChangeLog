@@ -1,7 +1,7 @@
 2006-01-21  Heikki Orsila <heikki.orsila@iki.fi>
 	- Added quiet option (-q) to not print the time index when a command
 	  is run.
-	- Added simulatio optin (-s) which means not to run the command and
+	- Added simulatio option (-s) which means not to run the command and
 	  not to sleep. It is useful for testing the probability distribution.
 	  Try:
 	       poissonrun -s 64 echo foo 2>&1 |head -n 10000

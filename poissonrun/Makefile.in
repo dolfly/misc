@@ -1,0 +1,9 @@
+CC = gcc
+CFLAGS = -Wall -O2 -g
+LDFLAGS = 
+
+poissonrun:	poissonrun.c version.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+
+install:	poissonrun
+	install poissonrun {PREFIX}/bin/
