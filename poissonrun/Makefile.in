@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -O2 -g -I.
-LDFLAGS = 
+LDFLAGS = -lm
 DDIR = poissonrun-{VERSION}
 
 poissonrun:	poissonrun.c version.h
