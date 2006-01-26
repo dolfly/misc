@@ -86,14 +86,23 @@ int main(int argc, char **argv)
   int quiet = 0;
   char **command;
   int max_rounds = 0;
-  int one_shot = 0;
-  struct timeval stime = {.tv_sec = 1};
+  int max_events = 0;
+  double sleep_time = 1.0;
   double prob;
+  struct timeval intervaltimeval;
 
   for (i = 1; i < argc;) {
-    if (strcmp(argv[i], "-1") == 0 || strcmp(argv[i], "--one-shot") == 0) {
-      one_shot = 1;
-      i++;
+    if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--max-events") == 0) {
+      if ((i + 1) >= argc) {
+	fprintf(stderr, "Not enough args.\n");
+	return -1;
+      }
+      max_events = atoi(argv[i + 1]);
+      if (max_events <= 0) {
+	fprintf(stderr, "Max events must be positive.\n");
+	return -1;
+      }
+      i += 2;
       continue;
     } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
       print_help();
@@ -119,7 +128,6 @@ int main(int argc, char **argv)
       i++;
       continue;
     } else if (strcmp(argv[i], "--sleep") == 0) {
-      double sleep_time;
       if ((i + 1) >= argc) {
 	fprintf(stderr, "Not enough args.\n");
 	return -1;
@@ -129,9 +137,6 @@ int main(int argc, char **argv)
 	fprintf(stderr, "Time interval must be positive.\n");
 	return -1;
       }
-      stime.tv_sec = floor(sleep_time);
-      stime.tv_usec = 1000000.0 * (sleep_time - floor(sleep_time));
-      assert(stime.tv_usec < 1000000);
       i += 2;
       continue;
     } else if (argv[i][0] == '-') {
@@ -154,15 +159,28 @@ int main(int argc, char **argv)
       fprintf(stderr, "Probability must be positive.\n");
       return -1;
     }
+    if (prob > 1.0) {
+      fprintf(stderr, "Probability must not be over 1.0.\n");
+      return -1;
+    }
   } else {
     double interval = atof(argv[i]);
     if (interval <= 0.0) {
-      fprintf(stderr, "interval must be positive.\n");
+      fprintf(stderr, "Interval must be positive.\n");
+      return -1;
     }
-    prob = 1.0 / interval;
+    if (interval < sleep_time) {
+      fprintf(stderr, "Interval must be at least as long as the sleep time for one round.\n");
+      return -1;
+    }
+    prob = sleep_time / interval;
   }
 
   command = argv + i + 1;
+
+  intervaltimeval.tv_sec = floor(sleep_time);
+  intervaltimeval.tv_usec = 1000000.0 * (sleep_time - floor(sleep_time));
+  assert(intervaltimeval.tv_usec < 1000000);
 
   for (i = 0;; i++) {
 
@@ -172,7 +190,7 @@ int main(int argc, char **argv)
     if (get_random() < prob) {
       int rv;
       if (quiet == 0)
-	fprintf(stderr, "Command run on time index %lld seconds.\n", i);
+	fprintf(stderr, "Command run on time index %.3lf seconds.\n", i * sleep_time);
       if (simulation == 0) {
 	rv = fork();
 	if (rv == 0) {
@@ -192,12 +210,14 @@ int main(int argc, char **argv)
 	  }
 	}
       }
-      if (one_shot)
+      if (max_events == 1)
 	break;
+      if (max_events > 0)
+	max_events--;
     }
     if (simulation == 0) {
-      struct timeval stemp = stime;
-      select(0, NULL, NULL, NULL, &stemp);
+      struct timeval tv = intervaltimeval;
+      select(0, NULL, NULL, NULL, &tv);
     }
   }
   return 0;

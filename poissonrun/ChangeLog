@@ -1,3 +1,21 @@
+2006-01-26  Heikki Orsila <heikki.orsila@iki.fi>
+	- Added -m and --max-rounds options which limits the number of
+	  randomization rounds. For example, -m 1 will cause the randomization
+	  to be done only once.
+	- Added -e and --max-events options which cause the program to exit
+	  after first randomization that realizes the event (command).
+	- Added --sleep option which can be used to specify sleep time
+	  between rounds. The default is 1 second. Floating-point values
+	  are allowed. Accuracy depends on the underlying kernel. Note
+	  that given time interval must not be less than the sleep time.
+	- There is now an alternative to specifying time interval. One can
+	  give p=x instead of time interval. p=x means that an event happens
+	  with probability x on each round. The relation between x and
+	  time interval is:
+	      p = sleep_time / time_interval
+	  By default sleep_time == 1.0. --sleep option can be used to 
+	  specify it.
+
 2006-01-23  Heikki Orsila <heikki.orsila@iki.fi>
 	* Version 0.02
 	- Added a configure script for easy and automatic installation.
