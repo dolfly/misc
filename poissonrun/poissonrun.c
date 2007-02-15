@@ -78,7 +78,7 @@ static void print_help(void)
 	 "Time interval T should be given as a floating-point number bigger than 1.\n"
 	 "\n"
 	 " USAGE:\n"
-	 "\tpoissonrun [-e n] [-h] [-m n] [-q] [-s] [--sleep t] PROBSPEC command args ...\n"
+	 "\tpoissonrun [-e n] [-m n] [-q] [-s] [--sleep t] PROBSPEC command args ...\n"
 	 "\n"
 	 " -e n/--max-events n  Stop when command has been executed n times\n"
 	 " -f                   Fork and forget; multiple commands can be running\n"
@@ -90,6 +90,7 @@ static void print_help(void)
 	 "                      random process.\n"
 	 " --sleep t            Sleep t seconds between random invocations (useful for\n"
 	 "                      time intervals < 2 seconds)\n"
+	 " -v/--version         Print poissonrun version number\n"
 	 "\n"
 	 "The program needs /dev/urandom to work.\n"
 	 "\n"
@@ -182,6 +183,10 @@ int main(int argc, char **argv)
       }
       i += 2;
       continue;
+
+    } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+      printf("poissonrun " VERSION "\n");
+      exit(0);
 
     } else if (argv[i][0] == '-') {
       fprintf(stderr, "Unknown arg: %s\n", argv[i]);
