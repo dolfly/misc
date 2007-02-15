@@ -1,3 +1,16 @@
+2007-02-15  Heikki Orsila <heikki.orsila@iki.fi>
+	* Version 0.03
+	- Documentation updates
+	- Feature improvements, see changelog entry at 2006-01-26. In short:
+	  * "-m n" allows to specify maximum number of rounds
+	  * "-e n" allows to specify maximum number of rounds that will execute
+	  * "-s t" allows to sent randomization time interval
+	  * Probability for execution at each round can be specified directly
+	    by using p=x notation, where x is the probability. See --help.
+	- Fork and forget mode: allow multiple commands be simultaneously in
+	  running state
+	- Option -v will print version number
+
 2006-01-26  Heikki Orsila <heikki.orsila@iki.fi>
 	- Added -m and --max-rounds options which limits the number of
 	  randomization rounds. For example, -m 1 will cause the randomization
