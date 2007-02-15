@@ -66,7 +66,7 @@ static void print_help(void)
 	 "case, PROBSPEC is a pure value (T), so that it is a time interval in seconds.\n"
 	 "The command will be run every T second on average. In the second case, PROBPEC\n"
 	 "has form p=x, where x is a probability of the command being run at any random\n"
-	 "invocation. For example, if x=0.1, the event occurs every 10 runs on average.\n"
+	 "invocation. For example, if x=0.1, the event occurs once in 10 runs on average.\n"
 	 "\n"
 	 "Randomization happens once every second, or if \"--sleep t\" it happens every\n"
 	 "\"t\" seconds. However, only one instance of the command is being run at any\n"
@@ -80,12 +80,12 @@ static void print_help(void)
 	 " USAGE:\n"
 	 "\tpoissonrun [-e n] [-h] [-m n] [-q] [-s] [--sleep t] PROBSPEC command args ...\n"
 	 "\n"
-	 " -e n/--max-events n  Stop when command has been executed n times.\n"
-	 " -f                   Fork and forget: multiple commands can be in running\n"
-	 "                      state simultaneously. NOT IMPLEMENTED YET.\n"
-	 " -h/--help            Print help.\n"
+	 " -e n/--max-events n  Stop when command has been executed n times\n"
+	 " -f                   Fork and forget; multiple commands can be running\n"
+	 "                      simultaneously\n"
+	 " -h/--help            Print help\n"
 	 " -m n/--max-rounds n  Stop after n randomizations (compare to -e)\n"
-	 " -q/--quiet           Do not print the time index when the command is run.\n"
+	 " -q/--quiet           Do not print the time index when the command is run\n"
 	 " -s/--simulate        Do not run the command or sleep. Useful for testing the\n"
 	 "                      random process.\n"
 	 " --sleep t            Sleep t seconds between random invocations (useful for\n"
@@ -93,8 +93,16 @@ static void print_help(void)
 	 "\n"
 	 "The program needs /dev/urandom to work.\n"
 	 "\n"
-	 "Example 1: Play a wav file statistically every 64 seconds. Danger: irritating.\n"
-	 "\tpoissonrun 64 aplay foo.wav\n");
+	 "Example 1: Play a wav file statistically every 64 seconds. (irritating)\n"
+	 "\n"
+	 "\tpoissonrun 64 aplay foo.wav\n"
+	 "\n"
+	 "Example 2: Play a wav file statistically every second. Set sleep time\n"
+	 "interval to 0.1s and probability to 0.1. Allow multiple samples to be played\n"
+	 "simultaneously. (more irritating than the previous example :-)\n"
+	 "\n"
+	 "\tpoissonrun -f --sleep 0.1 p=0.1 aplay foo.wav\n"
+	 "\n");
 }
 
 
@@ -231,14 +239,31 @@ int main(int argc, char **argv)
       if (quiet == 0)
 	fprintf(stderr, "Command run on iteration %lld (%lld * sleep_time = %.3lfs)\n", i, i, i * sleep_time);
       if (simulation == 0) {
+
 	rv = fork();
 	if (rv == 0) {
+
+	  /* In fork and forget mode, fork second time so that init will
+	     automagically inherit children instead of waiting() for them */
+	  if (fork_and_forget) {
+	    rv = fork();
+	    /* The father (rv < 0 and rv > 0) must abort */
+	    if (rv < 0) {
+	      perror("Not able to fork");
+	      abort();
+	    } else if (rv > 0) {
+	      abort();
+	    }
+	  }
 	  execvp(command[0], command);
 	  abort();
+
 	} else if (rv < 0) {
-	  fprintf(stderr, "Not able to fork.\n");
+	  perror("Not able to fork");
+
 	} else {
-	  while (1) {
+	  /* No need to wait() in fork and forget mode */
+	  while (!fork_and_forget) {
 	    int ex = wait(NULL);
 	    if (ex == rv)
 	      break;
