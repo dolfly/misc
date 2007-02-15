@@ -111,8 +111,10 @@ int main(int argc, char **argv)
   double prob;
   struct timeval intervaltimeval;
   char *endptr;
+  int fork_and_forget = 0;
 
   for (i = 1; i < argc;) {
+
     if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--max-events") == 0) {
       if ((i + 1) >= argc) {
 	fprintf(stderr, "Not enough args.\n");
@@ -126,9 +128,16 @@ int main(int argc, char **argv)
       max_events = (size_t) value;
       i += 2;
       continue;
+
+    } else if (strcmp(argv[i], "-f") == 0) {
+      fork_and_forget = 1;
+      i++;
+      continue;
+
     } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
       print_help();
       return 0;
+
     } else if (strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--max-rounds") == 0) {
       if ((i + 1) >= argc) {
 	fprintf(stderr, "Not enough args.\n");
@@ -142,14 +151,17 @@ int main(int argc, char **argv)
       max_rounds = value;
       i += 2;
       continue;
+
     } else if (strcmp(argv[i], "-q") == 0 || strcmp(argv[i], "--quiet") == 0) {
       quiet = 1;
       i++;
       continue;
+
     } else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--simulate") == 0) {
       simulation = 1;
       i++;
       continue;
+
     } else if (strcmp(argv[i], "--sleep") == 0) {
       if ((i + 1) >= argc) {
 	fprintf(stderr, "Not enough args.\n");
@@ -162,6 +174,7 @@ int main(int argc, char **argv)
       }
       i += 2;
       continue;
+
     } else if (argv[i][0] == '-') {
       fprintf(stderr, "Unknown arg: %s\n", argv[i]);
       return -1;
@@ -170,7 +183,7 @@ int main(int argc, char **argv)
   }
 
   if ((i + 1) >= argc) {
-    fprintf(stderr, "Not enough args.\n");
+    fprintf(stderr, "Not enough args. Run %s -h\n", argv[0]);
     return -1;
   }
 
@@ -191,6 +204,9 @@ int main(int argc, char **argv)
     if (interval <= 0.0) {
       fprintf(stderr, "Interval must be positive.\n");
       return -1;
+    }
+    if (interval < 2.0 * sleep_time) {
+      fprintf(stderr, "Warning: interval should be much less than the sleep time (%f). Choose another sleep time or greater interval value.\n", sleep_time);
     }
     if (interval < sleep_time) {
       fprintf(stderr, "Interval must be at least as long as the sleep time for one round.\n");
@@ -213,7 +229,7 @@ int main(int argc, char **argv)
     if (get_random() < prob) {
       int rv;
       if (quiet == 0)
-	fprintf(stderr, "Command run on iteration %lld (approx time of execution %.3lfs).\n", i, i * sleep_time);
+	fprintf(stderr, "Command run on iteration %lld (%lld * sleep_time = %.3lfs)\n", i, i, i * sleep_time);
       if (simulation == 0) {
 	rv = fork();
 	if (rv == 0) {
