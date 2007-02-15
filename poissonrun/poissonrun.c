@@ -55,27 +55,46 @@ static double get_random(void)
 static void print_help(void)
 {
   printf("poissonrun %s by Heikki Orsila <heikki.orsila@iki.fi>. No copyrights claimed.\n", VERSION);
-  printf("\n");
-  printf("The program runs a given command statistically every T seconds. The command may\n");
-  printf("run at any second but on average it will be run once every T seconds.\n");
-  printf("Randomization happens once every second and based on that it is decided\n");
-  printf("if the command should be run. Time is not counted when the command is being\n");
-  printf("run. Time interval T should be big compared to command\n");
-  printf("execution time so that this process is statistically reasonable.\n");
-  printf("Time interval T should be given as a floating-point number bigger than 1.\n");
-  printf("\n");
-  printf(" USAGE:\n");
-  printf("\tpoissonrun [-h] [-q] [-s] T command arg1 arg2 ...\n");
-  printf("\n");
-  printf(" -h/--help\t\tPrint help.\n");
-  printf(" -q/--quiet\t\tDo not print the time index when the command is run.\n");
-  printf(" -s/--simulate\t\tDo not run the command or sleep. Useful for testing the\n");
-  printf("\t\t\trandom process.\n");
-  printf("\n");
-  printf("The program needs /dev/urandom to work.\n");
-  printf("\n");
-  printf("Example 1: Play a wav file statistically every 64 seconds. Danger: irritating.\n");
-  printf("\tpoissonrun 64 aplay foo.wav\n");
+  printf("\n"
+         "The program takes a PROBSPEC and a command as inputs. The command is run\n"
+	 "at random times depending on the PROBSPEC. PROBSEC will determine value T so\n"
+	 "that the command will be run every T seconds on average. Each run is\n"
+	 "independent of other runs. If the command is run at time t, it is not less\n"
+	 "likely to be run at time t+1 (immediately following second).\n"
+	 "\n"
+	 "The probability specification PROBSPEC can be given in two forms. In the first\n"
+	 "case, PROBSPEC is a pure value (T), so that it is a time interval in seconds.\n"
+	 "The command will be run every T second on average. In the second case, PROBPEC\n"
+	 "has form p=x, where x is a probability of the command being run at any random\n"
+	 "invocation. For example, if x=0.1, the event occurs every 10 runs on average.\n"
+	 "\n"
+	 "Randomization happens once every second, or if \"--sleep t\" it happens every\n"
+	 "\"t\" seconds. However, only one instance of the command is being run at any\n"
+	 "given time, unless -f option is used (fork and forget), in which case many\n"
+	 "commands can happen simultaneously.\n"
+	 "\n"
+	 "Time interval T should be big compared to command execution time so that this\n"
+	 "process is statistically reasonable.\n"
+	 "Time interval T should be given as a floating-point number bigger than 1.\n"
+	 "\n"
+	 " USAGE:\n"
+	 "\tpoissonrun [-e n] [-h] [-m n] [-q] [-s] [--sleep t] PROBSPEC command args ...\n"
+	 "\n"
+	 " -e n/--max-events n  Stop when command has been executed n times.\n"
+	 " -f                   Fork and forget: multiple commands can be in running\n"
+	 "                      state simultaneously. NOT IMPLEMENTED YET.\n"
+	 " -h/--help            Print help.\n"
+	 " -m n/--max-rounds n  Stop after n randomizations (compare to -e)\n"
+	 " -q/--quiet           Do not print the time index when the command is run.\n"
+	 " -s/--simulate        Do not run the command or sleep. Useful for testing the\n"
+	 "                      random process.\n"
+	 " --sleep t            Sleep t seconds between random invocations (useful for\n"
+	 "                      time intervals < 2 seconds)\n"
+	 "\n"
+	 "The program needs /dev/urandom to work.\n"
+	 "\n"
+	 "Example 1: Play a wav file statistically every 64 seconds. Danger: irritating.\n"
+	 "\tpoissonrun 64 aplay foo.wav\n");
 }
 
 
@@ -85,11 +104,13 @@ int main(int argc, char **argv)
   int simulation = 0;
   int quiet = 0;
   char **command;
-  int max_rounds = 0;
-  int max_events = 0;
+  size_t max_rounds = 0;
+  size_t max_events = 0;
+  long value;
   double sleep_time = 1.0;
   double prob;
   struct timeval intervaltimeval;
+  char *endptr;
 
   for (i = 1; i < argc;) {
     if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--max-events") == 0) {
@@ -97,11 +118,12 @@ int main(int argc, char **argv)
 	fprintf(stderr, "Not enough args.\n");
 	return -1;
       }
-      max_events = atoi(argv[i + 1]);
-      if (max_events <= 0) {
-	fprintf(stderr, "Max events must be positive.\n");
+      value = strtol(argv[i + 1], &endptr, 10);
+      if (*endptr != 0 || value <= 0) {
+	fprintf(stderr, "Invalid max events\n");
 	return -1;
       }
+      max_events = (size_t) value;
       i += 2;
       continue;
     } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
@@ -112,11 +134,12 @@ int main(int argc, char **argv)
 	fprintf(stderr, "Not enough args.\n");
 	return -1;
       }
-      max_rounds = atoi(argv[i + 1]);
-      if (max_rounds <= 0) {
+      value = strtol(argv[i + 1], &endptr, 10);
+      if (*endptr != 0 || value <= 0) {
 	fprintf(stderr, "Max rounds must be positive.\n");
 	return -1;
       }
+      max_rounds = value;
       i += 2;
       continue;
     } else if (strcmp(argv[i], "-q") == 0 || strcmp(argv[i], "--quiet") == 0) {
@@ -190,7 +213,7 @@ int main(int argc, char **argv)
     if (get_random() < prob) {
       int rv;
       if (quiet == 0)
-	fprintf(stderr, "Command run on time index %.3lf seconds.\n", i * sleep_time);
+	fprintf(stderr, "Command run on iteration %lld (approx time of execution %.3lfs).\n", i, i * sleep_time);
       if (simulation == 0) {
 	rv = fork();
 	if (rv == 0) {
