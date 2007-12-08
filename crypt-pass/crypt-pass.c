@@ -34,9 +34,13 @@ int main(int argc, char **argv) {
 
 	/* read passwd from stdin. salt is either given or randomized. */
 	if (strcmp(pass, "-") == 0) {
-		char *ret;
 		int len;
-		ret = fgets(pass, sizeof(pass), stdin);
+		while (fgets(pass, sizeof(pass), stdin) == NULL) {
+			if (feof(stdin) == NULL) {
+				fprintf(stderr, "Could not read password\n");
+				exit(1);
+			}
+		}
 		len = strlen(pass);
 		if (pass[len - 1] == '\n')
 			pass[len - 1] = 0;
