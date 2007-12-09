@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
 	if (strcmp(pass, "-") == 0) {
 		int len;
 		while (fgets(pass, sizeof(pass), stdin) == NULL) {
-			if (feof(stdin) == NULL) {
+			if (feof(stdin) || ferror(stdin)) {
 				fprintf(stderr, "Could not read password\n");
 				exit(1);
 			}
